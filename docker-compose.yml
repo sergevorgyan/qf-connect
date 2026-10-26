@@ -1,0 +1,18 @@
+# One VPS with a static IP (whitelist it in VoIP.ms). Put Caddy or another TLS proxy in front.
+services:
+  api:
+    build: .
+    env_file: .env
+    environment: { DATABASE_PATH: /data/qf-connect.db }
+    volumes: [data:/data]
+    ports: ["3000:3000"]
+    restart: unless-stopped
+  worker:
+    build: .
+    env_file: .env
+    environment: { DATABASE_PATH: /data/qf-connect.db }
+    volumes: [data:/data]
+    command: ["npm", "run", "worker", "-w", "apps/api"]
+    restart: unless-stopped
+volumes:
+  data:
