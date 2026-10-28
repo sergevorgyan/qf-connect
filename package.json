@@ -3,15 +3,21 @@
   "private": true,
   "version": "0.1.0",
   "description": "Quantum Frame branded VoIP customer portal and integrations on the VoIP.ms API",
-  "workspaces": ["apps/api", "apps/web"],
+  "workspaces": [
+    "apps/api",
+    "apps/web"
+  ],
   "scripts": {
     "dev": "npm run seed -w apps/api && concurrently -n api,worker,web \"npm run dev -w apps/api\" \"npm run worker -w apps/api\" \"npm run dev -w apps/web\"",
     "build": "npm run build -w apps/web && npm run typecheck -w apps/api",
     "test": "npm test -w apps/api",
-    "seed": "npm run seed -w apps/api"
+    "seed": "npm run seed -w apps/api",
+    "voipms:check": "npm run voipms:check -w apps/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
   },
-  "engines": { "node": ">=22.13" }
+  "engines": {
+    "node": ">=22.13"
+  }
 }

@@ -54,6 +54,7 @@ main { padding: 28px 32px; max-width: 1100px; width: 100%; }
 
 .rows { list-style: none; margin: 0 0 10px; padding: 0; }
 .rows li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.rows select { width: auto; }
 .rows li.unread strong::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 8px; }
 .table { padding: 0; overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }

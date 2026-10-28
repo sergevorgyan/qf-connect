@@ -8,7 +8,8 @@
     "worker": "tsx src/worker.ts",
     "seed": "tsx src/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test --no-warnings test/*.test.ts"
+    "test": "QF_SKIP_ENV_FILE=1 node --import tsx --test --no-warnings test/*.test.ts",
+    "voipms:check": "tsx src/voipmsCheck.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.1",

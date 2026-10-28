@@ -92,3 +92,25 @@ test('calls are logged to HubSpot once, matched to the contact', async () => {
   const second = await runOnce(db, api, fakeFetch);
   assert.equal(second.logged, 1); // only the newly polled call
 });
+
+test('QF admin links a VoIP.ms number to a customer and unlinks it', async () => {
+  const { db, acme } = seededDb();
+  setVoipMs(new MockVoipMs());
+  const app = await buildServer(db);
+  const admin = await login(app, 'admin@qf.test', 'admin-password');
+
+  const inv = (await app.inject({ url: '/api/admin/voipms/inventory', headers: admin })).json() as { numbers: { did: string; tenantId: number | null }[] };
+  assert.ok(inv.numbers.every((n) => n.tenantId !== null)); // seed already links both mock DIDs
+
+  const linked = await app.inject({ method: 'POST', url: `/api/admin/tenants/${acme}/numbers`, headers: admin, payload: { did: '4155550100' } });
+  assert.equal(linked.statusCode, 409); // one number, one customer
+
+  await app.inject({ method: 'DELETE', url: '/api/admin/tenants/1/numbers/%2B14155550100', headers: admin });
+  const ok = await app.inject({ method: 'POST', url: `/api/admin/tenants/${acme}/numbers`, headers: admin, payload: { did: '4155550100', label: 'Test line' } });
+  assert.equal(ok.statusCode, 200);
+  const detail = (await app.inject({ url: `/api/admin/tenants/${acme}`, headers: admin })).json() as { numbers: { did: string; smsCallbackUrl: string }[] };
+  assert.ok(detail.numbers.some((n) => n.did === '+14155550100' && n.smsCallbackUrl.includes('/webhooks/voipms/sms/')));
+
+  const dana = await login(app, 'dana@bay.test', 'dana-password');
+  assert.equal((await app.inject({ url: '/api/admin/voipms/inventory', headers: dana })).statusCode, 403);
+});

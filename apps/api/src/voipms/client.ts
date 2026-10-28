@@ -1,6 +1,6 @@
 import { config } from '../config.ts';
 import { MockVoipMs } from './mock.ts';
-import { VoipMsError, type CdrRecord, type SubAccount, type VoicemailMessage, type VoipMs } from './types.ts';
+import { VoipMsError, type CdrRecord, type DidInfo, type SubAccount, type VoicemailMessage, type VoipMs } from './types.ts';
 
 const ENDPOINT = 'https://voip.ms/api/v1/rest.php';
 
@@ -18,6 +18,19 @@ export class HttpVoipMs implements VoipMs {
     // "no_cdr", "no_messages" etc. mean an empty result, not a failure.
     if (body.status !== 'success' && !body.status.startsWith('no_')) throw new VoipMsError(method, body.status);
     return body;
+  }
+
+  // getIP skips the IP check, so it works before whitelisting and tells you which IP to whitelist.
+  async getIP() {
+    return (await this.call<{ ip: string }>('getIP')).ip;
+  }
+
+  async getBalance() {
+    return (await this.call<{ balance: { current_balance: string } }>('getBalance')).balance.current_balance;
+  }
+
+  async getDIDsInfo() {
+    return (await this.call<{ dids?: DidInfo[] }>('getDIDsInfo')).dids ?? [];
   }
 
   async getCDR(p: { dateFrom: string; dateTo: string; timezone: number; account?: string }) {

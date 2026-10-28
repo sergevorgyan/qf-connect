@@ -1,4 +1,10 @@
 import { randomBytes } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// Secrets live in the repo-root .env (git-ignored), never in code or chat. Real env vars win.
+const envFile = fileURLToPath(new URL('../../../.env', import.meta.url));
+if (existsSync(envFile) && !process.env.QF_SKIP_ENV_FILE) process.loadEnvFile(envFile);
 
 const env = process.env;
 

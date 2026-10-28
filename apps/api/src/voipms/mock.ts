@@ -1,4 +1,4 @@
-import type { CdrRecord, SubAccount, VoicemailMessage, VoipMs } from './types.ts';
+import type { CdrRecord, DidInfo, SubAccount, VoicemailMessage, VoipMs } from './types.ts';
 
 // Deterministic fake account matching the seed data, so the portal and worker run end to end
 // before the real API is enabled. A new call lands every poll so text-back can be watched live.
@@ -32,6 +32,18 @@ export class MockVoipMs implements VoipMs {
       seconds: disposition === 'ANSWERED' ? String(30 + ((n * 37) % 400)) : '0',
       uniqueid: `mock-${n}`,
     });
+  }
+
+  async getIP() {
+    return '203.0.113.10';
+  }
+
+  async getBalance() {
+    return '25.00';
+  }
+
+  async getDIDsInfo(): Promise<DidInfo[]> {
+    return DIDS.map((did, i) => ({ did, description: i ? 'Billing' : 'Main line', routing: 'account:100001_frontdesk', sms_enabled: '1' }));
   }
 
   async getCDR() {
