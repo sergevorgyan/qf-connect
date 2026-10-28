@@ -2,9 +2,11 @@
 services:
   caddy:
     image: caddy:2.8
-    environment: { DOMAIN: "${DOMAIN:?set DOMAIN in .env, e.g. qf.lowcoster.us}" }
+    environment:
+      DOMAIN: "${DOMAIN:?set DOMAIN in .env, e.g. qf.lowcoster.us}"
+      SITE_DOMAIN: "${SITE_DOMAIN:-quantumframe.lowcoster.us}"
     ports: ["80:80", "443:443"]
-    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data]
+    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, ./website:/srv/website:ro, caddy_data:/data]
     restart: unless-stopped
   api:
     build: .
