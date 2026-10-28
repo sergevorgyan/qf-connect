@@ -1,5 +1,11 @@
 import type { DB } from './db.ts';
 import { parseCallerId, toE164 } from './phone.ts';
+import { wallClockToIso } from './time.ts';
+
+// getCDR's timezone=0 is not plain UTC (VoIP.ms applies US daylight saving to it), so we ask for
+// US Eastern (-5) and convert with America/New_York, which follows the same rules.
+export const CDR_TIMEZONE_PARAM = -5;
+const CDR_ZONE = 'America/New_York';
 import type { CdrRecord, VoipMs } from './voipms/types.ts';
 
 export interface CallRow {
@@ -39,9 +45,11 @@ export function normalizeCdr(rec: CdrRecord, own: Ownership): CallRow | null {
     disposition: rec.disposition,
     extension: rec.account,
     durationSeconds: Number(rec.seconds) || 0,
-    startedAt: new Date(rec.date.replace(' ', 'T') + 'Z').toISOString(),
+    startedAt: wallClockToIso(rec.date, CDR_ZONE),
   };
   if (dest && own.didToTenant.has(dest)) {
+    // VoIP.ms reports a call that ended in voicemail as ANSWERED; its routing trace says otherwise.
+    if (/routing to voicemail/i.test(rec.call_logs ?? '')) base.disposition = 'VOICEMAIL';
     return { ...base, tenantId: own.didToTenant.get(dest)!, direction: 'inbound', fromNumber: caller.number, fromName: caller.name, toNumber: dest, did: dest };
   }
   const tenantId = own.accountToTenant.get(rec.account);
@@ -57,7 +65,7 @@ function utcDate(d: Date) {
 
 // Pulls yesterday and today (UTC) and inserts anything new. Returns ids of newly stored calls.
 export async function syncCalls(db: DB, api: VoipMs, now = new Date()): Promise<number[]> {
-  const records = await api.getCDR({ dateFrom: utcDate(new Date(now.getTime() - 86_400_000)), dateTo: utcDate(now), timezone: 0 });
+  const records = await api.getCDR({ dateFrom: utcDate(new Date(now.getTime() - 86_400_000)), dateTo: utcDate(now), timezone: CDR_TIMEZONE_PARAM });
   const own = loadOwnership(db);
   const insert = db.prepare(`INSERT INTO calls (tenant_id, voipms_uniqueid, direction, disposition, from_number, from_name, to_number, did, extension, duration_seconds, started_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (voipms_uniqueid) DO NOTHING`);

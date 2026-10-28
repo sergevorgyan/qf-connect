@@ -14,6 +14,7 @@ export function toTenDigit(e164: string): string {
 // CDR caller IDs look like `"JOHN SMITH" <5551234567>` or just `5551234567`.
 export function parseCallerId(callerid: string): { name: string | null; number: string | null } {
   const m = callerid.match(/^"?([^"<]*)"?\s*<([^>]+)>$/);
-  if (m) return { name: m[1].trim() || null, number: toE164(m[2]) };
+  // Voicemail repeats the number as the name ("2672622465 <2672622465>"); that is no name.
+  if (m) return { name: m[1].trim() && !toE164(m[1]) ? m[1].trim() : null, number: toE164(m[2]) };
   return { name: null, number: toE164(callerid) };
 }

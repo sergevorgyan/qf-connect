@@ -19,7 +19,7 @@ export interface CallForCrm {
   startedAt: string;
 }
 
-const STATUS: Record<string, string> = { ANSWERED: 'COMPLETED', 'NO ANSWER': 'NO_ANSWER', BUSY: 'BUSY', FAILED: 'FAILED' };
+const STATUS: Record<string, string> = { ANSWERED: 'COMPLETED', 'NO ANSWER': 'NO_ANSWER', VOICEMAIL: 'NO_ANSWER', BUSY: 'BUSY', FAILED: 'FAILED' };
 
 export function buildCallProperties(call: CallForCrm, businessName: string) {
   const inbound = call.direction === 'inbound';

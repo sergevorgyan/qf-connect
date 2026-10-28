@@ -13,7 +13,7 @@ export function Voicemail() {
         <ul className="rows">
           {data?.map((m) => (
             <li key={`${m.mailbox}-${m.message_num}`} className={m.listened === 'no' ? 'unread' : ''}>
-              <span><strong>{m.caller.name ?? formatPhone(m.caller.number)}</strong><span className="muted"> {m.date} · {m.duration} · box {m.mailbox}</span></span>
+              <span><strong>{m.caller.name ?? formatPhone(m.caller.number)}</strong><span className="muted"> {new Date(m.date).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · {m.duration} · box {m.mailbox}</span></span>
               <audio controls preload="none" src={`/api/voicemails/${m.mailbox}/${m.folder}/${m.message_num}/audio`} />
             </li>
           ))}

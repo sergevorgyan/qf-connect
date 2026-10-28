@@ -17,6 +17,8 @@ export const config = {
   databasePath: env.DATABASE_PATH ?? './qf-connect.db',
   voipms: {
     mock: env.VOIPMS_MOCK !== '0',
+    // Zone of the VoIP.ms account's own clock (Settings > Timezone); voicemail dates come back in it.
+    accountTimezone: env.VOIPMS_ACCOUNT_TIMEZONE ?? 'America/New_York',
     username: env.VOIPMS_API_USERNAME ?? '',
     password: env.VOIPMS_API_PASSWORD ?? '',
   },

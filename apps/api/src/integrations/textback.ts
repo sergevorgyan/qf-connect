@@ -3,7 +3,7 @@ import { toTenDigit } from '../phone.ts';
 import type { VoipMs } from '../voipms/types.ts';
 import { getIntegration, textbackSettings, type TextbackSettings } from './settings.ts';
 
-const MISSED = new Set(['NO ANSWER', 'BUSY']);
+const MISSED = new Set(['NO ANSWER', 'BUSY', 'VOICEMAIL']);
 
 export interface TextbackContext {
   call: { direction: string; disposition: string; fromNumber: string | null; did: string | null; startedAt: string };
