@@ -12,6 +12,7 @@ export interface CdrRecord {
   disposition: Disposition | string;
   seconds: string;
   uniqueid: string;
+  call_logs?: string; // routing trace, e.g. "Failover to Voicemail 2002\nRouting to voicemail: 2002"
 }
 
 export interface VoicemailMessage {

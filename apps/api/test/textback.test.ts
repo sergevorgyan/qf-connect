@@ -18,6 +18,7 @@ const withCall = (c: Partial<TextbackContext['call']>) => ({ ...base, call: { ..
 test('texts back a fresh missed inbound call', () => {
   assert.deepEqual(decideTextback(base), { send: true });
   assert.deepEqual(decideTextback(withCall({ disposition: 'BUSY' })), { send: true });
+  assert.deepEqual(decideTextback(withCall({ disposition: 'VOICEMAIL' })), { send: true });
 });
 
 test('skips with a reason for each guard', () => {

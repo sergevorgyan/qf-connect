@@ -46,8 +46,9 @@ export class HttpVoipMs implements VoipMs {
   }
 
   async getVoicemailMessages(p: { mailbox: string; folder?: string }) {
-    const r = await this.call<{ messages?: VoicemailMessage[] }>('getVoicemailMessages', { mailbox: p.mailbox, folder: p.folder ?? 'INBOX' });
-    return r.messages ?? [];
+    // Passing folder=INBOX returned nothing on a live account, so it is only sent when asked for.
+    const r = await this.call<{ messages?: VoicemailMessage[] }>('getVoicemailMessages', { mailbox: p.mailbox, folder: p.folder });
+    return (r.messages ?? []).map((m) => ({ ...m, mailbox: String(m.mailbox) }));
   }
 
   async getVoicemailMessageFile(p: { mailbox: string; folder: string; messageNum: string }) {

@@ -23,6 +23,16 @@ test('routes CDRs to the tenant that owns the DID or sub-account', () => {
   assert.equal(normalizeCdr({ ...rec, destination: '2125550000', account: 'someone_else' }, own), null);
 });
 
+test('a call that ended in voicemail counts as VOICEMAIL, not ANSWERED', () => {
+  const { db } = seededDb();
+  const own = loadOwnership(db);
+  // Shape copied from a real VoIP.ms getCDR record.
+  const rec = { date: '2026-10-28 20:52:36', callerid: '2672622465', destination: '5105550200', description: 'Inbound DID', account: '100001', disposition: 'ANSWERED', seconds: '18', uniqueid: 'u2',
+    call_logs: "Call logs for UniqueID: u2\nRouting to sub-account: 100001_acme\nStatus is 'Channel not available'\nFailover due to 'Unreachable' status\nFailover to Voicemail 2001\nRouting to voicemail: 2001\nHangup: Channel is unavailable" };
+  assert.equal(normalizeCdr(rec, own)?.disposition, 'VOICEMAIL');
+  assert.equal(normalizeCdr({ ...rec, call_logs: 'Routing to sub-account: 100001_acme' }, own)?.disposition, 'ANSWERED');
+});
+
 test('sync is idempotent', async () => {
   const { db } = seededDb();
   const api = new MockVoipMs();
