@@ -1,4 +1,4 @@
-import type { CdrRecord, DidInfo, SubAccount, VoicemailMessage, VoipMs } from './types.ts';
+import type { CdrRecord, DidInfo, ResellerClient, SubAccount, VoicemailMessage, VoipMs } from './types.ts';
 
 // Deterministic fake account matching the seed data, so the portal and worker run end to end
 // before the real API is enabled. A new call lands every poll so text-back can be watched live.
@@ -45,8 +45,17 @@ export class MockVoipMs implements VoipMs {
     return '25.00';
   }
 
-  async getDIDsInfo(): Promise<DidInfo[]> {
-    return DIDS.map((did, i) => ({ did, description: i ? 'Billing' : 'Main line', routing: 'account:100001_frontdesk', sms_enabled: '1' }));
+  async getDIDsInfo(filter: { client?: string } = {}): Promise<DidInfo[]> {
+    if (filter.client === '50001') return [{ did: '4155550199', description: 'Corner Cafe main', routing: 'account:100001_cafe', sms_enabled: '1' }];
+    if (filter.client) return [];
+    return [
+      ...DIDS.map((did, i) => ({ did, description: i ? 'Billing' : 'Main line', routing: 'account:100001_frontdesk', sms_enabled: '1' })),
+      { did: '4155550199', description: 'Corner Cafe main', routing: 'account:100001_cafe', sms_enabled: '1' },
+    ];
+  }
+
+  async getClients(): Promise<ResellerClient[]> {
+    return [{ client: '50001', email: 'owner@cornercafe.example', firstname: 'Sam', lastname: 'Lee', company: 'Corner Cafe' }];
   }
 
   async getCDR() {
@@ -74,6 +83,7 @@ export class MockVoipMs implements VoipMs {
     return [
       { id: '1', account: '100001_frontdesk', description: 'Front desk' },
       { id: '2', account: '100001_drkim', description: 'Dr. Kim' },
+      { id: '3', account: '100001_cafe', description: 'Corner Cafe counter' },
     ];
   }
 

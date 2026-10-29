@@ -100,7 +100,7 @@ test('QF admin links a VoIP.ms number to a customer and unlinks it', async () =>
   const admin = await login(app, 'admin@qf.test', 'admin-password');
 
   const inv = (await app.inject({ url: '/api/admin/voipms/inventory', headers: admin })).json() as { numbers: { did: string; tenantId: number | null }[] };
-  assert.ok(inv.numbers.every((n) => n.tenantId !== null)); // seed already links both mock DIDs
+  assert.ok(inv.numbers.filter((n) => n.did !== '+14155550199').every((n) => n.tenantId !== null)); // seed links both Bay DIDs; the cafe's is a reseller client's
 
   const linked = await app.inject({ method: 'POST', url: `/api/admin/tenants/${acme}/numbers`, headers: admin, payload: { did: '4155550100' } });
   assert.equal(linked.statusCode, 409); // one number, one customer
@@ -113,4 +113,28 @@ test('QF admin links a VoIP.ms number to a customer and unlinks it', async () =>
 
   const dana = await login(app, 'dana@bay.test', 'dana-password');
   assert.equal((await app.inject({ url: '/api/admin/voipms/inventory', headers: dana })).statusCode, 403);
+});
+
+test('QF admin upgrades a basic reseller client to the VIP portal', async () => {
+  const { db, acme } = seededDb();
+  setVoipMs(new MockVoipMs());
+  const app = await buildServer(db);
+  const admin = await login(app, 'admin@qf.test', 'admin-password');
+
+  const inv = (await app.inject({ url: '/api/admin/voipms/inventory', headers: admin })).json() as { clients: { id: string; name: string; tenantId: number | null }[] };
+  assert.deepEqual(inv.clients, [{ id: '50001', name: 'Corner Cafe', email: 'owner@cornercafe.example', tenantId: null }]);
+
+  const noClient = await app.inject({ method: 'POST', url: `/api/admin/tenants/${acme}/voipms-client/link-items`, headers: admin });
+  assert.equal(noClient.statusCode, 400);
+
+  assert.equal((await app.inject({ method: 'PUT', url: `/api/admin/tenants/${acme}/voipms-client`, headers: admin, payload: { clientId: '50001' } })).statusCode, 200);
+  assert.equal((await app.inject({ method: 'PUT', url: '/api/admin/tenants/1/voipms-client', headers: admin, payload: { clientId: '50001' } })).statusCode, 409); // one client, one customer
+
+  const linked = (await app.inject({ method: 'POST', url: `/api/admin/tenants/${acme}/voipms-client/link-items`, headers: admin })).json();
+  assert.deepEqual(linked, { numbers: ['+14155550199'], extensions: ['100001_cafe'], skipped: [] });
+  const again = (await app.inject({ method: 'POST', url: `/api/admin/tenants/${acme}/voipms-client/link-items`, headers: admin })).json();
+  assert.deepEqual(again, { numbers: [], extensions: [], skipped: [] }); // safe to run twice
+
+  const detail = (await app.inject({ url: `/api/admin/tenants/${acme}`, headers: admin })).json() as { tenant: { voipmsClientId: string } };
+  assert.equal(detail.tenant.voipmsClientId, '50001');
 });

@@ -41,4 +41,16 @@ for (const d of dids) {
 const subs = await api.getSubAccounts();
 console.log(`\nSub-accounts (${subs.length}):`);
 for (const s of subs) console.log(`  ${s.account}  ${s.description || '-'}  ${managedAccounts.get(s.account) ? `-> ${managedAccounts.get(s.account)}` : '(not in portal)'}`);
+let clients: Awaited<ReturnType<typeof api.getClients>> = [];
+try { clients = await api.getClients(); } catch (err) { if (!(err instanceof VoipMsError)) throw err; console.log(`\nReseller clients: none readable (${err.status}).`); }
+const clientTenants = new Map((db.prepare('SELECT voipms_client_id AS c, name FROM tenants WHERE voipms_client_id IS NOT NULL').all() as { c: string; name: string }[]).map((r) => [r.c, r.name]));
+if (clients.length) {
+  console.log(`\nReseller clients (${clients.length}):`);
+  for (const c of clients) {
+    const name = c.company || [c.firstname, c.lastname].filter(Boolean).join(' ') || c.email;
+    const tenant = clientTenants.get(String(c.client));
+    console.log(`  client ${c.client}  ${name}  ${tenant ? `-> VIP portal: ${tenant}` : '(basic: VoIP.ms portal only)'}`);
+    for (const d of await api.getDIDsInfo({ client: String(c.client) })) console.log(`      ${d.did}  ${d.description || '-'}  ${d.routing || ''}`);
+  }
+}
 console.log('\nThe portal and worker only touch numbers and sub-accounts linked to a customer. Everything marked "(not in portal)" is ignored.');

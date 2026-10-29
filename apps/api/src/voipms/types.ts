@@ -38,10 +38,21 @@ export interface DidInfo {
   sms_enabled: string; // "1" or "0"
 }
 
+// A reseller client (Reseller > Manage Clients). Its numbers and sub-accounts stay in QF's main
+// account; VoIP.ms just connects them to the client so they show in the white-label portal.
+export interface ResellerClient {
+  client: string; // client ID
+  email: string;
+  firstname?: string;
+  lastname?: string;
+  company?: string;
+}
+
 export interface VoipMs {
   getIP(): Promise<string>;
   getBalance(): Promise<string>;
-  getDIDsInfo(): Promise<DidInfo[]>;
+  getDIDsInfo(filter?: { client?: string }): Promise<DidInfo[]>;
+  getClients(): Promise<ResellerClient[]>;
   getCDR(params: { dateFrom: string; dateTo: string; timezone: number; account?: string }): Promise<CdrRecord[]>;
   sendSMS(params: { did: string; dst: string; message: string }): Promise<{ sms: string }>;
   getVoicemailMessages(params: { mailbox: string; folder?: string }): Promise<VoicemailMessage[]>;

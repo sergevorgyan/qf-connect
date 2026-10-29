@@ -69,13 +69,14 @@ function NewTenant({ onCreated }: { onCreated: () => void }) {
 }
 
 interface Detail {
-  tenant: { id: number; name: string };
+  tenant: { id: number; name: string; voipmsClientId: string | null };
   numbers: { did: string; label: string | null; tendlcStatus: string; smsCallbackUrl: string }[];
   extensions: { account: string; label: string; voicemailBox: string | null }[];
 }
 interface Inventory {
   numbers: { did: string | null; description: string; smsEnabled: boolean; tenantId: number | null }[];
   extensions: { account: string; description: string; tenantId: number | null }[];
+  clients: { id: string; name: string; email: string; tenantId: number | null }[];
 }
 
 const TENDLC = ['not_started', 'pending', 'approved', 'rejected'];
@@ -96,6 +97,7 @@ function ManageTenant({ id, onChanged }: { id: number; onChanged: () => void }) 
   return (
     <section className="card stack">
       <h2>{data.tenant.name}: numbers and extensions</h2>
+      <ResellerClientLink tenantId={id} clientId={data.tenant.voipmsClientId} clients={inv?.clients ?? []} run={run} />
       <div className="label">Linked numbers</div>
       <ul className="rows">
         {data.numbers.map((n) => (
@@ -144,5 +146,34 @@ function ManageTenant({ id, onChanged }: { id: number; onChanged: () => void }) 
       </ul>
       {error && <div className="error">{error}</div>}
     </section>
+  );
+}
+
+// Upgrading a basic customer (VoIP.ms white-label portal) to VIP: pick their reseller client, then pull in its numbers.
+function ResellerClientLink({ tenantId, clientId, clients, run }: {
+  tenantId: number; clientId: string | null; clients: Inventory['clients'];
+  run: (fn: () => Promise<unknown>, done: string) => Promise<void>;
+}) {
+  const choices = clients.filter((c) => c.tenantId === null || c.tenantId === tenantId);
+  const current = clients.find((c) => c.id === clientId);
+  if (!clients.length && !clientId) return null;
+  const linkItems = () => run(async () => {
+    const r = await api<{ numbers: string[]; extensions: string[]; skipped: string[] }>(`/api/admin/tenants/${tenantId}/voipms-client/link-items`, { method: 'POST' });
+    if (r.skipped.length) toast(`Skipped (already belong to another customer): ${r.skipped.join(', ')}`, 'error');
+    return r;
+  }, "Client's numbers and extensions linked.");
+  return (
+    <div className="stack">
+      <div className="label">VoIP.ms reseller client (basic portal account)</div>
+      <div className="row wrap">
+        <select value={clientId ?? ''} onChange={(e) => run(() => api(`/api/admin/tenants/${tenantId}/voipms-client`, { method: 'PUT', body: { clientId: e.target.value || null } }), e.target.value ? 'Reseller client linked.' : 'Reseller client unlinked.')}>
+          <option value="">None (portal-only customer)</option>
+          {choices.map((c) => <option key={c.id} value={c.id}>{c.name} · client {c.id}</option>)}
+          {clientId && !current && <option value={clientId}>client {clientId}</option>}
+        </select>
+        {clientId && <button className="secondary" onClick={linkItems}>Link this client's numbers and extensions</button>}
+      </div>
+      <p className="muted small">The customer keeps their VoIP.ms portal login. Their numbers and extensions also appear here, so they get the VIP features without changing accounts.</p>
+    </div>
   );
 }

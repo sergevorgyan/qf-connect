@@ -1,6 +1,6 @@
 import { config } from '../config.ts';
 import { MockVoipMs } from './mock.ts';
-import { VoipMsError, type CdrRecord, type DidInfo, type SubAccount, type VoicemailMessage, type VoipMs } from './types.ts';
+import { VoipMsError, type CdrRecord, type DidInfo, type ResellerClient, type SubAccount, type VoicemailMessage, type VoipMs } from './types.ts';
 
 const ENDPOINT = 'https://voip.ms/api/v1/rest.php';
 
@@ -29,8 +29,13 @@ export class HttpVoipMs implements VoipMs {
     return (await this.call<{ balance: { current_balance: string } }>('getBalance')).balance.current_balance;
   }
 
-  async getDIDsInfo() {
-    return (await this.call<{ dids?: DidInfo[] }>('getDIDsInfo')).dids ?? [];
+  async getDIDsInfo(filter: { client?: string } = {}) {
+    return (await this.call<{ dids?: DidInfo[] }>('getDIDsInfo', { client: filter.client })).dids ?? [];
+  }
+
+  // Fails with "no_reseller"-style statuses on accounts without reseller access; callers treat that as no clients.
+  async getClients() {
+    return (await this.call<{ clients?: ResellerClient[] }>('getClients')).clients ?? [];
   }
 
   async getCDR(p: { dateFrom: string; dateTo: string; timezone: number; account?: string }) {
