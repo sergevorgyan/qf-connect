@@ -33,6 +33,7 @@ try {
 }
 
 const dids = await api.getDIDsInfo();
+console.log(`(getDIDsInfo fields: ${(await api.describe('getDIDsInfo')).itemFields.join(', ')})`);
 console.log(`\nNumbers (${dids.length}):`);
 for (const d of dids) {
   const owner = managedDids.get(toE164(d.did) ?? '');
@@ -58,7 +59,12 @@ if (clientsFailed) {
     const name = c.company || [c.firstname, c.lastname].filter(Boolean).join(' ') || c.email;
     const tenant = clientTenants.get(String(c.client));
     console.log(`  client ${c.client}  ${name}  ${tenant ? `-> VIP portal: ${tenant}` : '(basic: VoIP.ms portal only)'}`);
-    for (const d of await api.getDIDsInfo({ client: String(c.client) })) console.log(`      ${d.did}  ${d.description || '-'}  ${d.routing || ''}`);
+    const own = await api.getDIDsInfo({ client: String(c.client) });
+    for (const d of own) console.log(`      ${d.did}  ${d.description || '-'}  ${d.routing || ''}`);
+    if (!own.length) {
+      const f = await api.describe('getDIDsInfo', { client: String(c.client) });
+      console.log(`      (no numbers via getDIDsInfo client filter: status "${f.status}")`);
+    }
   }
 }
 console.log('\nThe portal and worker only touch numbers and sub-accounts linked to a customer. Everything marked "(not in portal)" is ignored.');

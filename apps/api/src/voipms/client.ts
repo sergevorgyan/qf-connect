@@ -21,8 +21,8 @@ export class HttpVoipMs implements VoipMs {
   }
 
   // For voipms:check only: the response's status and top-level keys, to confirm field names on a live account.
-  async describe(method: string) {
-    const qs = new URLSearchParams({ api_username: this.username, api_password: this.password, method, content_type: 'json' });
+  async describe(method: string, params: Record<string, string> = {}) {
+    const qs = new URLSearchParams({ api_username: this.username, api_password: this.password, method, content_type: 'json', ...params });
     const res = await this.fetchImpl(`${ENDPOINT}?${qs}`, { signal: AbortSignal.timeout(15_000) });
     const body = (await res.json()) as Record<string, unknown>;
     const first = Object.values(body).find(Array.isArray) as Record<string, unknown>[] | undefined;
