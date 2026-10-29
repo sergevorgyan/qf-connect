@@ -93,16 +93,19 @@ export class HubSpotClient {
 
   async findContactByPhone(e164: string): Promise<string | null> {
     const ten = e164.slice(-10);
-    // HubSpot stores phones as typed, so search a few common spellings.
-    const values = [e164, ten, `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`, `${ten.slice(0, 3)}-${ten.slice(3, 6)}-${ten.slice(6)}`];
-    const filterGroups = ['phone', 'mobilephone'].flatMap((p) => values.map((v) => ({ filters: [{ propertyName: p, operator: 'EQ', value: v }] })));
-    const r = await this.request<{ results: { id: string }[] }>('/crm/v3/objects/contacts/search', { filterGroups: filterGroups.slice(0, 5), limit: 1 });
-    if (r.results[0]) return r.results[0].id;
-    if (filterGroups.length > 5) {
-      const r2 = await this.request<{ results: { id: string }[] }>('/crm/v3/objects/contacts/search', { filterGroups: filterGroups.slice(5), limit: 1 });
-      return r2.results[0]?.id ?? null;
+    type Hits = { results: { id: string }[] };
+    // HubSpot reformats phones as they're typed (e.g. "+1 267-262-2465"), so match on its digits-only
+    // calculated properties first, then the raw spellings, then a full-text search as a last resort.
+    const groups = [
+      ...['hs_searchable_calculated_phone_number', 'hs_searchable_calculated_mobile_number'].map((p) => ({ filters: [{ propertyName: p, operator: 'EQ', value: ten }] })),
+      ...[e164, `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`, `+1 ${ten.slice(0, 3)}-${ten.slice(3, 6)}-${ten.slice(6)}`].map((v) => ({ filters: [{ propertyName: 'phone', operator: 'EQ', value: v }] })),
+    ];
+    for (const filterGroups of [groups.slice(0, 5), groups.slice(5)].filter((g) => g.length)) {
+      const r = await this.request<Hits>('/crm/v3/objects/contacts/search', { filterGroups, limit: 1 });
+      if (r.results[0]) return r.results[0].id;
     }
-    return null;
+    const r = await this.request<Hits>('/crm/v3/objects/contacts/search', { query: ten, limit: 1 });
+    return r.results[0]?.id ?? null;
   }
 
   async createContact(e164: string, name: string | null): Promise<string> {
