@@ -57,7 +57,12 @@ if (clientsFailed) {
     const tenant = clientTenants.get(String(c.client));
     console.log(`  client ${c.client}  ${name}  ${tenant ? `-> VIP portal: ${tenant}` : '(basic: VoIP.ms portal only)'}`);
     const own = await api.getDIDsInfo({ client: String(c.client) });
-    for (const d of own) console.log(`      ${d.did}  ${d.description || '-'}  ${d.routing || ''}`);
+    for (const d of own) {
+      console.log(`      ${d.did}  ${d.description || '-'}  ${d.routing || ''}`);
+      // Where missed calls go; the portal reads the voicemail box from here.
+      const fo = Object.entries(d as unknown as Record<string, unknown>).filter(([k, v]) => /failover|voicemail/i.test(k) && v);
+      if (fo.length) console.log(`        ${fo.map(([k, v]) => `${k}=${v}`).join('  ')}`);
+    }
     if (!own.length) {
       const f = await api.describe('getDIDsInfo', { client: String(c.client) });
       console.log(`      (no numbers via getDIDsInfo client filter: status "${f.status}")`);
