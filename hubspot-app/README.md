@@ -9,7 +9,7 @@ Upload it from the server (no Node install needed on the host):
 ```
 cd /root/qf-connect/hubspot-app
 docker run --rm -it -v "$PWD":/work -w /work -v qf-hscli:/root node:22 \
-  sh -c "npx -y @hubspot/cli@latest account auth && npx -y @hubspot/cli@latest project upload"
+  sh -c "npm install -g --silent @hubspot/cli@latest && hs account auth && hs project upload"
 ```
 
 Then in HubSpot: Development > Projects > quantum-frame-phone > Quantum Frame Phone > **Auth** tab. Copy the client ID and client secret into `.env` as `HUBSPOT_CLIENT_ID` and `HUBSPOT_CLIENT_SECRET`, and restart with `docker compose up -d`.
