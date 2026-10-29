@@ -46,7 +46,7 @@ export class MockVoipMs implements VoipMs {
   }
 
   async getDIDsInfo(filter: { client?: string } = {}): Promise<DidInfo[]> {
-    if (filter.client === '50001') return [{ did: '4155550199', description: 'Corner Cafe main', routing: '100001_cafe', sms_enabled: '1' }];
+    if (filter.client === '50001') return [{ did: '4155550199', description: 'Corner Cafe main', routing: '100001_cafe', sms_enabled: '1', failover_noanswer: 'vm:3001' }];
     if (filter.client) return [];
     return [
       ...DIDS.map((did, i) => ({ did, description: i ? 'Billing' : 'Main line', routing: 'account:100001_frontdesk', sms_enabled: '1' })),

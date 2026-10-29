@@ -119,9 +119,12 @@ export function adminRoutes(app: FastifyInstance, db: DB, publicUrl: string) {
       // Live accounts report routing as the bare sub-account ("557002_3"); the docs show "account:557002_3".
       const account = (d.routing ?? '').replace(/^account:/, '');
       if (!account || !knownSubs.has(account)) continue;
+      // The DID's failover ("vm:2002") is the mailbox that customer's missed calls land in.
+      const box = [d.failover_noanswer, d.failover_busy, d.failover_unreachable].map((f) => /^vm:(\d+)$/.exec(f ?? '')?.[1]).find(Boolean) ?? null;
       const extOwner = db.prepare('SELECT tenant_id AS t FROM extensions WHERE voipms_account = ?').get(account) as { t: number } | undefined;
+      if (extOwner?.t === id && box) db.prepare('UPDATE extensions SET voicemail_box = ? WHERE voipms_account = ? AND voicemail_box IS NULL').run(box, account);
       if (!extOwner) {
-        db.prepare('INSERT INTO extensions (tenant_id, voipms_account, label) VALUES (?, ?, ?)').run(id, account, knownSubs.get(account) || account);
+        db.prepare('INSERT INTO extensions (tenant_id, voipms_account, label, voicemail_box) VALUES (?, ?, ?, ?)').run(id, account, knownSubs.get(account) || account, box);
         result.extensions.push(account);
       } else if (extOwner.t !== id && !result.skipped.includes(account)) result.skipped.push(account);
     }

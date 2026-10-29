@@ -36,6 +36,9 @@ export interface DidInfo {
   description: string;
   routing: string;
   sms_enabled: string; // "1" or "0"
+  failover_busy?: string; // e.g. "vm:2002"
+  failover_unreachable?: string;
+  failover_noanswer?: string;
 }
 
 // A reseller client (Reseller > Manage Clients). Its numbers and sub-accounts stay in QF's main

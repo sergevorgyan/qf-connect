@@ -135,6 +135,7 @@ test('QF admin upgrades a basic reseller client to the VIP portal', async () => 
   const again = (await app.inject({ method: 'POST', url: `/api/admin/tenants/${acme}/voipms-client/link-items`, headers: admin })).json();
   assert.deepEqual(again, { numbers: [], extensions: [], skipped: [] }); // safe to run twice
 
-  const detail = (await app.inject({ url: `/api/admin/tenants/${acme}`, headers: admin })).json() as { tenant: { voipmsClientId: string } };
+  const detail = (await app.inject({ url: `/api/admin/tenants/${acme}`, headers: admin })).json() as { tenant: { voipmsClientId: string }; extensions: { account: string; voicemailBox: string | null }[] };
   assert.equal(detail.tenant.voipmsClientId, '50001');
+  assert.equal(detail.extensions.find((e) => e.account === '100001_cafe')?.voicemailBox, '3001'); // from the DID's failover
 });
