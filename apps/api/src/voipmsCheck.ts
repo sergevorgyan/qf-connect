@@ -42,9 +42,17 @@ const subs = await api.getSubAccounts();
 console.log(`\nSub-accounts (${subs.length}):`);
 for (const s of subs) console.log(`  ${s.account}  ${s.description || '-'}  ${managedAccounts.get(s.account) ? `-> ${managedAccounts.get(s.account)}` : '(not in portal)'}`);
 let clients: Awaited<ReturnType<typeof api.getClients>> = [];
-try { clients = await api.getClients(); } catch (err) { if (!(err instanceof VoipMsError)) throw err; console.log(`\nReseller clients: none readable (${err.status}).`); }
+let clientsFailed = false;
+try { clients = await api.getClients(); } catch (err) { if (!(err instanceof VoipMsError)) throw err; clientsFailed = true; console.log(`\nReseller clients: none readable (${err.status}).`); }
 const clientTenants = new Map((db.prepare('SELECT voipms_client_id AS c, name FROM tenants WHERE voipms_client_id IS NOT NULL').all() as { c: string; name: string }[]).map((r) => [r.c, r.name]));
-if (clients.length) {
+if (clientsFailed) {
+  // reported above
+} else if (!clients.length) {
+  const d = await api.describe('getClients');
+  console.log(`\nReseller clients: none returned (VoIP.ms status "${d.status}", keys: ${d.keys.join(', ')}).`);
+} else {
+  const d = await api.describe('getClients');
+  console.log(`\n(getClients fields: ${d.itemFields.join(', ')})`);
   console.log(`\nReseller clients (${clients.length}):`);
   for (const c of clients) {
     const name = c.company || [c.firstname, c.lastname].filter(Boolean).join(' ') || c.email;

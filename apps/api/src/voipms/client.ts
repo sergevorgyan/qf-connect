@@ -20,6 +20,15 @@ export class HttpVoipMs implements VoipMs {
     return body;
   }
 
+  // For voipms:check only: the response's status and top-level keys, to confirm field names on a live account.
+  async describe(method: string) {
+    const qs = new URLSearchParams({ api_username: this.username, api_password: this.password, method, content_type: 'json' });
+    const res = await this.fetchImpl(`${ENDPOINT}?${qs}`, { signal: AbortSignal.timeout(15_000) });
+    const body = (await res.json()) as Record<string, unknown>;
+    const first = Object.values(body).find(Array.isArray) as Record<string, unknown>[] | undefined;
+    return { status: String(body.status), keys: Object.keys(body), itemFields: first?.[0] ? Object.keys(first[0]) : [] };
+  }
+
   // getIP skips the IP check, so it works before whitelisting and tells you which IP to whitelist.
   async getIP() {
     return (await this.call<{ ip: string }>('getIP')).ip;
