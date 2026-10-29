@@ -40,6 +40,7 @@ for (const d of dids) {
   console.log(`  ${d.did}  ${d.description || '-'}  sms:${d.sms_enabled === '1' ? 'on' : 'off'}  ${owner ? `-> ${owner}` : '(not in portal)'}`);
 }
 const subs = await api.getSubAccounts();
+console.log(`(getSubAccounts fields: ${(await api.describe('getSubAccounts')).itemFields.join(', ')})`);
 console.log(`\nSub-accounts (${subs.length}):`);
 for (const s of subs) console.log(`  ${s.account}  ${s.description || '-'}  ${managedAccounts.get(s.account) ? `-> ${managedAccounts.get(s.account)}` : '(not in portal)'}`);
 let clients: Awaited<ReturnType<typeof api.getClients>> = [];
