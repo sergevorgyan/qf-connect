@@ -86,3 +86,16 @@ Open `https://qf.lowcoster.us` and sign in with `QF_ADMIN_EMAIL`.
 3. In `.env`, change `VOIPMS_API_USERNAME` and `VOIPMS_API_PASSWORD`; change `DOMAIN` and `PUBLIC_URL` to the new domain and add its A record. Then run `docker compose up -d`.
 4. Run `npm run voipms:check`. In **Numbers and extensions**, unlink the old account's items and link the new ones. Sub-account names start with the account number, so they will be new.
 5. Paste the new SMS callback URLs into the new account's numbers. Customer logins, settings and history stay as they are.
+
+## Basic and VIP customers (reseller clients)
+
+Basic customers use VoIP.ms's white-label portal as a reseller client (Reseller > Manage Clients). Their numbers and sub-accounts still live in the Quantum Frame main account; VoIP.ms only connects them to the client.
+
+To upgrade a basic customer to the VIP portal:
+
+1. Admin > Customers > Add customer (their portal login), then open **Numbers and extensions**.
+2. Pick their VoIP.ms reseller client in the dropdown.
+3. Click **Link this client's numbers and extensions**. This adds every number connected to that client, plus the sub-account each number rings. Anything already linked to another customer is skipped and listed.
+4. Paste each number's SMS callback URL into VoIP.ms as usual.
+
+The customer keeps their VoIP.ms portal login. `npm run voipms:check` lists reseller clients, their numbers, and which are VIP.
