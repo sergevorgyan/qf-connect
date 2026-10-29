@@ -141,6 +141,7 @@ export async function logPendingCalls(db: DB, fetchImpl: typeof fetch = fetch, l
       markDone();
       logged++;
     } catch (err) {
+      console.error(`hubspot logging failed for call ${c.id}:`, (err as Error).message);
       db.prepare('UPDATE calls SET crm_error = ? WHERE id = ?').run((err as Error).message.slice(0, 300), c.id);
     }
   }
