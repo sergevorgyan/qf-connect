@@ -1,6 +1,6 @@
 import { config } from '../config.ts';
 import { MockVoipMs } from './mock.ts';
-import { VoipMsError, type CdrRecord, type SubAccount, type VoicemailMessage, type VoipMs } from './types.ts';
+import { VoipMsError, type CdrRecord, type DidInfo, type SubAccount, type VoicemailMessage, type VoipMs } from './types.ts';
 
 const ENDPOINT = 'https://voip.ms/api/v1/rest.php';
 
@@ -20,6 +20,19 @@ export class HttpVoipMs implements VoipMs {
     return body;
   }
 
+  // getIP skips the IP check, so it works before whitelisting and tells you which IP to whitelist.
+  async getIP() {
+    return (await this.call<{ ip: string }>('getIP')).ip;
+  }
+
+  async getBalance() {
+    return (await this.call<{ balance: { current_balance: string } }>('getBalance')).balance.current_balance;
+  }
+
+  async getDIDsInfo() {
+    return (await this.call<{ dids?: DidInfo[] }>('getDIDsInfo')).dids ?? [];
+  }
+
   async getCDR(p: { dateFrom: string; dateTo: string; timezone: number; account?: string }) {
     const r = await this.call<{ cdr?: CdrRecord[] }>('getCDR', {
       date_from: p.dateFrom, date_to: p.dateTo, timezone: p.timezone, account: p.account,
@@ -33,8 +46,9 @@ export class HttpVoipMs implements VoipMs {
   }
 
   async getVoicemailMessages(p: { mailbox: string; folder?: string }) {
-    const r = await this.call<{ messages?: VoicemailMessage[] }>('getVoicemailMessages', { mailbox: p.mailbox, folder: p.folder ?? 'INBOX' });
-    return r.messages ?? [];
+    // Passing folder=INBOX returned nothing on a live account, so it is only sent when asked for.
+    const r = await this.call<{ messages?: VoicemailMessage[] }>('getVoicemailMessages', { mailbox: p.mailbox, folder: p.folder });
+    return (r.messages ?? []).map((m) => ({ ...m, mailbox: String(m.mailbox) }));
   }
 
   async getVoicemailMessageFile(p: { mailbox: string; folder: string; messageNum: string }) {

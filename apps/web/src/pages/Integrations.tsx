@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api, formatPhone } from '../api';
 import { useData } from '../useData';
+import { toast } from '../toast';
+
+const failed = (e: unknown) => toast(`Could not save (${(e as Error).message}). Please try again.`, 'error');
 
 interface TextbackSettings { template: string; when: 'always' | 'after_hours' | 'business_hours'; businessHours: { days: number[]; start: string; end: string }; cooldownHours: number; maxAgeMinutes: number }
 interface Data {
@@ -26,10 +29,15 @@ function Textback({ data, canEdit, onSaved }: { data: Data['textback']; canEdit:
   const [enabled, setEnabled] = useState(data.enabled);
   const [s, setS] = useState(data.settings);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   useEffect(() => setSaved(false), [enabled, s]);
   const save = async () => {
-    await api('/api/integrations/textback', { method: 'PUT', body: { enabled, settings: s } });
-    setSaved(true); onSaved();
+    setSaving(true);
+    try {
+      await api('/api/integrations/textback', { method: 'PUT', body: { enabled, settings: s } });
+      setSaved(true); onSaved();
+      toast(enabled ? 'Text-back settings saved. Text-back is on.' : 'Text-back settings saved. Text-back is off.');
+    } catch (e) { failed(e); } finally { setSaving(false); }
   };
   const preview = s.template.replace('{business}', 'your business');
   return (
@@ -64,20 +72,26 @@ function Textback({ data, canEdit, onSaved }: { data: Data['textback']; canEdit:
         </ul>
         <p className="muted small">US carriers require each business to be registered before texts are delivered. Quantum Frame handles this for you.</p>
       </div>
-      {canEdit && <div className="row"><button className="primary" onClick={save}>Save</button>{saved && <span className="ok">Saved</span>}</div>}
+      {canEdit && <div className="row"><button className="primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>{saved && <span className="ok">✓ Saved</span>}</div>}
     </section>
   );
 }
 
 function Hubspot({ data, canEdit, onChanged }: { data: Data['hubspot']; canEdit: boolean; onChanged: () => void }) {
   const connect = async () => {
-    const { url } = await api<{ url: string }>('/api/integrations/hubspot/connect');
-    window.location.href = url;
+    try {
+      const { url } = await api<{ url: string }>('/api/integrations/hubspot/connect');
+      window.location.href = url;
+    } catch (e) { toast(`Could not start HubSpot sign-in (${(e as Error).message}).`, 'error'); }
   };
-  const disconnect = async () => { await api('/api/integrations/hubspot', { method: 'DELETE' }); onChanged(); };
+  const disconnect = async () => {
+    try { await api('/api/integrations/hubspot', { method: 'DELETE' }); onChanged(); toast('HubSpot disconnected.'); } catch (e) { failed(e); }
+  };
   const update = async (patch: Partial<Data['hubspot']['settings']>) => {
-    await api('/api/integrations/hubspot', { method: 'PUT', body: { enabled: data.enabled, settings: { ...data.settings, ...patch } } });
-    onChanged();
+    try {
+      await api('/api/integrations/hubspot', { method: 'PUT', body: { enabled: data.enabled, settings: { ...data.settings, ...patch } } });
+      onChanged(); toast('HubSpot settings saved.');
+    } catch (e) { failed(e); }
   };
   return (
     <section className="card stack">

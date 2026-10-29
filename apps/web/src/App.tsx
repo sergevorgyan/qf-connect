@@ -9,6 +9,7 @@ import { Messages } from './pages/Messages';
 import { Team } from './pages/Team';
 import { Integrations } from './pages/Integrations';
 import { Admin } from './pages/Admin';
+import { Toaster } from './toast';
 
 export interface Me {
   user: { id: number; name: string; email: string; role: 'qf_admin' | 'tenant_admin' | 'staff'; tenantId: number | null };
@@ -63,6 +64,7 @@ export function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </main>
+      <Toaster />
     </div>
   );
 }

@@ -1,11 +1,16 @@
-# One VPS with a static IP (whitelist it in VoIP.ms). Put Caddy or another TLS proxy in front.
+# One VPS with a static IP (whitelist it in VoIP.ms). Point DOMAIN's DNS A record at the VPS first.
 services:
+  caddy:
+    image: caddy:2.8
+    environment: { DOMAIN: "${DOMAIN:?set DOMAIN in .env, e.g. qf.lowcoster.us}" }
+    ports: ["80:80", "443:443"]
+    volumes: [./Caddyfile:/etc/caddy/Caddyfile:ro, caddy_data:/data]
+    restart: unless-stopped
   api:
     build: .
     env_file: .env
     environment: { DATABASE_PATH: /data/qf-connect.db }
     volumes: [data:/data]
-    ports: ["3000:3000"]
     restart: unless-stopped
   worker:
     build: .
@@ -16,3 +21,4 @@ services:
     restart: unless-stopped
 volumes:
   data:
+  caddy_data:

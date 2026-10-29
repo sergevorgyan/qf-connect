@@ -1,4 +1,10 @@
 import { randomBytes } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+// Secrets live in the repo-root .env (git-ignored), never in code or chat. Real env vars win.
+const envFile = fileURLToPath(new URL('../../../.env', import.meta.url));
+if (existsSync(envFile) && !process.env.QF_SKIP_ENV_FILE) process.loadEnvFile(envFile);
 
 const env = process.env;
 
@@ -11,6 +17,8 @@ export const config = {
   databasePath: env.DATABASE_PATH ?? './qf-connect.db',
   voipms: {
     mock: env.VOIPMS_MOCK !== '0',
+    // Zone of the VoIP.ms account's own clock (Settings > Timezone); voicemail dates come back in it.
+    accountTimezone: env.VOIPMS_ACCOUNT_TIMEZONE ?? 'America/New_York',
     username: env.VOIPMS_API_USERNAME ?? '',
     password: env.VOIPMS_API_PASSWORD ?? '',
   },

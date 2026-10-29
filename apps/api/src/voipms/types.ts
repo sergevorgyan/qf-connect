@@ -12,6 +12,7 @@ export interface CdrRecord {
   disposition: Disposition | string;
   seconds: string;
   uniqueid: string;
+  call_logs?: string; // routing trace, e.g. "Failover to Voicemail 2002\nRouting to voicemail: 2002"
 }
 
 export interface VoicemailMessage {
@@ -30,7 +31,17 @@ export interface SubAccount {
   description: string;
 }
 
+export interface DidInfo {
+  did: string;
+  description: string;
+  routing: string;
+  sms_enabled: string; // "1" or "0"
+}
+
 export interface VoipMs {
+  getIP(): Promise<string>;
+  getBalance(): Promise<string>;
+  getDIDsInfo(): Promise<DidInfo[]>;
   getCDR(params: { dateFrom: string; dateTo: string; timezone: number; account?: string }): Promise<CdrRecord[]>;
   sendSMS(params: { did: string; dst: string; message: string }): Promise<{ sms: string }>;
   getVoicemailMessages(params: { mailbox: string; folder?: string }): Promise<VoicemailMessage[]>;

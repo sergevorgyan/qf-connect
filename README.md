@@ -32,6 +32,8 @@ npm run build           # type-check API, build the portal into apps/web/dist (s
 
 ## Going live with VoIP.ms
 
+Full walkthrough, including a server, a test subdomain and switching accounts later: [docs/connect-voipms.md](docs/connect-voipms.md).
+
 1. In the VoIP.ms portal: enable the API, set an API password, and whitelist the server's static IP.
 2. Set `VOIPMS_MOCK=0`, `VOIPMS_API_USERNAME`, `VOIPMS_API_PASSWORD` in `.env`.
 3. Add each customer in **Customers**, with their DIDs and sub-accounts.
@@ -45,7 +47,7 @@ Create a public app at developers.hubspot.com with scopes `crm.objects.contacts.
 
 ## Deploy
 
-`docker compose up -d --build` on a small VPS (static IP), behind Caddy or nginx for TLS. SQLite on a volume is fine for pilots; move to Postgres before about 50 customers.
+`docker compose up -d --build` on a small VPS (static IP). Caddy is included and handles HTTPS for `DOMAIN`. SQLite on a volume is fine for pilots; move to Postgres before about 50 customers.
 
 ## Layout
 

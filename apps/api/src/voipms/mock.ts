@@ -1,10 +1,10 @@
-import type { CdrRecord, SubAccount, VoicemailMessage, VoipMs } from './types.ts';
+import type { CdrRecord, DidInfo, SubAccount, VoicemailMessage, VoipMs } from './types.ts';
 
 // Deterministic fake account matching the seed data, so the portal and worker run end to end
 // before the real API is enabled. A new call lands every poll so text-back can be watched live.
 const DIDS = ['4155550100', '4155550101'];
 const CALLERS = ['"MARIA LOPEZ" <4155557788>', '"JAMES CHEN" <6505551234>', '5105559876', '"PRIYA SHAH" <4085554321>'];
-const DISPOSITIONS = ['ANSWERED', 'ANSWERED', 'NO ANSWER', 'ANSWERED', 'BUSY'];
+const DISPOSITIONS = ['ANSWERED', 'ANSWERED', 'NO ANSWER', 'ANSWERED', 'BUSY', 'VOICEMAIL'];
 
 function stamp(d: Date) {
   return d.toISOString().slice(0, 19).replace('T', ' ');
@@ -21,7 +21,9 @@ export class MockVoipMs implements VoipMs {
 
   private addCall(at: Date) {
     const n = this.seq++;
-    const disposition = DISPOSITIONS[n % DISPOSITIONS.length];
+    const kind = DISPOSITIONS[n % DISPOSITIONS.length];
+    // Like the real API: a voicemail call is ANSWERED, and only call_logs shows it went to voicemail.
+    const disposition = kind === 'VOICEMAIL' ? 'ANSWERED' : kind;
     this.calls.push({
       date: stamp(at),
       callerid: CALLERS[n % CALLERS.length],
@@ -29,9 +31,22 @@ export class MockVoipMs implements VoipMs {
       description: 'Inbound DID',
       account: '100001_frontdesk',
       disposition,
-      seconds: disposition === 'ANSWERED' ? String(30 + ((n * 37) % 400)) : '0',
+      seconds: kind === 'ANSWERED' ? String(30 + ((n * 37) % 400)) : kind === 'VOICEMAIL' ? '18' : '0',
       uniqueid: `mock-${n}`,
+      call_logs: kind === 'VOICEMAIL' ? 'Routing to sub-account: 100001_frontdesk\nFailover to Voicemail 1001\nRouting to voicemail: 1001' : 'Routing to sub-account: 100001_frontdesk',
     });
+  }
+
+  async getIP() {
+    return '203.0.113.10';
+  }
+
+  async getBalance() {
+    return '25.00';
+  }
+
+  async getDIDsInfo(): Promise<DidInfo[]> {
+    return DIDS.map((did, i) => ({ did, description: i ? 'Billing' : 'Main line', routing: 'account:100001_frontdesk', sms_enabled: '1' }));
   }
 
   async getCDR() {

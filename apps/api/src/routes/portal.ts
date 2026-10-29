@@ -5,6 +5,8 @@ import { audit, type DB } from '../db.ts';
 import { toE164, toTenDigit, parseCallerId } from '../phone.ts';
 import { tenantMailboxes, tenantOwnsDid, tenantOwnsMailbox } from '../tenancy.ts';
 import { voipms } from '../voipms/client.ts';
+import { config } from '../config.ts';
+import { wallClockToIso } from '../time.ts';
 
 export function portalRoutes(app: FastifyInstance, db: DB) {
   app.get('/api/dashboard', async (req, reply) => {
@@ -34,7 +36,9 @@ export function portalRoutes(app: FastifyInstance, db: DB) {
     const t = requireTenant(req, reply); if (t == null) return;
     const boxes = tenantMailboxes(db, t);
     const lists = await Promise.all(boxes.map((mailbox) => voipms().getVoicemailMessages({ mailbox })));
-    return lists.flat().map((m) => ({ ...m, caller: parseCallerId(m.callerid) })).sort((a, b) => b.date.localeCompare(a.date));
+    return lists.flat()
+      .map((m) => ({ ...m, date: wallClockToIso(m.date, config.voipms.accountTimezone), caller: parseCallerId(m.callerid) }))
+      .sort((a, b) => b.date.localeCompare(a.date));
   });
 
   app.get('/api/voicemails/:mailbox/:folder/:num/audio', async (req, reply) => {
