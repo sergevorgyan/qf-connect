@@ -15,6 +15,13 @@ const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function Integrations({ canEdit }: { canEdit: boolean }) {
   const { data, reload } = useData<Data>('/api/integrations');
+  // Back from HubSpot's sign-in page: say how it went, then tidy the URL.
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get('hubspot');
+    if (result === 'connected') toast('HubSpot connected. New calls will be logged on matching contacts.');
+    if (result === 'error') toast('HubSpot did not connect. Please try again, or ask Quantum Frame to check the server log.', 'error');
+    if (result) window.history.replaceState(null, '', '/integrations');
+  }, []);
   if (!data) return <h1>Integrations</h1>;
   return (
     <>

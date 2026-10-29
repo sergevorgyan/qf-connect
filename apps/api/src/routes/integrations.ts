@@ -54,13 +54,24 @@ export function integrationRoutes(app: FastifyInstance, db: DB) {
   });
 
   app.get('/api/integrations/hubspot/callback', async (req, reply) => {
-    const q = z.object({ code: z.string(), state: z.string() }).parse(req.query);
+    // HubSpot sends ?error=... instead of a code when the user cancels or the app config is wrong.
+    const parsed = z.object({ code: z.string(), state: z.string() }).safeParse(req.query);
+    if (!parsed.success) {
+      req.log.warn({ query: req.query }, 'hubspot oauth callback without code');
+      return reply.redirect('/integrations?hubspot=error');
+    }
+    const q = parsed.data;
     const [tenant, nonce, sig] = q.state.split('.');
     const expected = sign(`${tenant}.${nonce}`);
     if (!sig || sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return reply.code(400).send({ error: 'bad_state' });
     // The browser must also be signed in to that tenant, so a leaked link can't connect someone else's CRM.
     if (req.user?.tenantId !== Number(tenant)) return reply.code(403).send({ error: 'forbidden' });
-    await connectHubspot(db, Number(tenant), q.code);
+    try {
+      await connectHubspot(db, Number(tenant), q.code);
+    } catch (err) {
+      req.log.error({ err }, 'hubspot token exchange failed');
+      return reply.redirect('/integrations?hubspot=error');
+    }
     return reply.redirect('/integrations?hubspot=connected');
   });
 }

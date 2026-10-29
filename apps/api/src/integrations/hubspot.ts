@@ -48,7 +48,7 @@ export function authorizeUrl(tenantId: number, state: string) {
 }
 
 async function tokenRequest(params: Record<string, string>, fetchImpl: typeof fetch): Promise<Tokens> {
-  const res = await fetchImpl(`${API}/oauth/v1/token`, {
+  const res = await fetchImpl(`${API}/oauth/v3/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: config.hubspot.clientId, client_secret: config.hubspot.clientSecret, redirect_uri: `${config.publicUrl}/api/integrations/hubspot/callback`, ...params }),
