@@ -8,7 +8,7 @@
     "auth": {
       "type": "oauth",
       "redirectUrls": ["https://qf.lowcoster.us/api/integrations/hubspot/callback"],
-      "requiredScopes": ["oauth", "crm.objects.contacts.read", "crm.objects.contacts.write", "crm.objects.calls.write"],
+      "requiredScopes": ["oauth", "crm.objects.contacts.read", "crm.objects.contacts.write"],
       "optionalScopes": [],
       "conditionallyRequiredScopes": []
     },

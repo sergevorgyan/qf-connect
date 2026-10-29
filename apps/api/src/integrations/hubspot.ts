@@ -4,7 +4,9 @@ import { decrypt, encrypt } from '../secrets.ts';
 import { getIntegration, hubspotSettings, saveIntegration } from './settings.ts';
 
 const API = 'https://api.hubapi.com';
-export const HUBSPOT_SCOPES = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'crm.objects.calls.write', 'oauth'];
+// Must match requiredScopes in hubspot-app/src/app/app-hsmeta.json. Creating calls is covered by
+// contacts write; the granular crm.objects.calls.write scope is gated by HubSpot for new apps.
+export const HUBSPOT_SCOPES = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'oauth'];
 const CALL_TO_CONTACT = 194; // HubSpot-defined association type: call -> contact
 
 interface Tokens { access_token: string; refresh_token: string; expires_at: number }
