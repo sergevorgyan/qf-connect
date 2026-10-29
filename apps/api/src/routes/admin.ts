@@ -116,7 +116,8 @@ export function adminRoutes(app: FastifyInstance, db: DB, publicUrl: string) {
         db.prepare('INSERT INTO numbers (tenant_id, did, label, sms_callback_token) VALUES (?, ?, ?, ?)').run(id, did, d.description || null, randomToken(24));
         result.numbers.push(did);
       } else if (owner.t !== id) result.skipped.push(did);
-      const account = /^account:(.+)$/.exec(d.routing ?? '')?.[1];
+      // Live accounts report routing as the bare sub-account ("557002_3"); the docs show "account:557002_3".
+      const account = (d.routing ?? '').replace(/^account:/, '');
       if (!account || !knownSubs.has(account)) continue;
       const extOwner = db.prepare('SELECT tenant_id AS t FROM extensions WHERE voipms_account = ?').get(account) as { t: number } | undefined;
       if (!extOwner) {

@@ -33,14 +33,12 @@ try {
 }
 
 const dids = await api.getDIDsInfo();
-console.log(`(getDIDsInfo fields: ${(await api.describe('getDIDsInfo')).itemFields.join(', ')})`);
 console.log(`\nNumbers (${dids.length}):`);
 for (const d of dids) {
   const owner = managedDids.get(toE164(d.did) ?? '');
   console.log(`  ${d.did}  ${d.description || '-'}  sms:${d.sms_enabled === '1' ? 'on' : 'off'}  ${owner ? `-> ${owner}` : '(not in portal)'}`);
 }
 const subs = await api.getSubAccounts();
-console.log(`(getSubAccounts fields: ${(await api.describe('getSubAccounts')).itemFields.join(', ')})`);
 console.log(`\nSub-accounts (${subs.length}):`);
 for (const s of subs) console.log(`  ${s.account}  ${s.description || '-'}  ${managedAccounts.get(s.account) ? `-> ${managedAccounts.get(s.account)}` : '(not in portal)'}`);
 let clients: Awaited<ReturnType<typeof api.getClients>> = [];
@@ -53,8 +51,6 @@ if (clientsFailed) {
   const d = await api.describe('getClients');
   console.log(`\nReseller clients: none returned (VoIP.ms status "${d.status}", keys: ${d.keys.join(', ')}).`);
 } else {
-  const d = await api.describe('getClients');
-  console.log(`\n(getClients fields: ${d.itemFields.join(', ')})`);
   console.log(`\nReseller clients (${clients.length}):`);
   for (const c of clients) {
     const name = c.company || [c.firstname, c.lastname].filter(Boolean).join(' ') || c.email;
