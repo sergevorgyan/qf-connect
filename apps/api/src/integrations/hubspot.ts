@@ -55,7 +55,8 @@ async function tokenRequest(params: Record<string, string>, fetchImpl: typeof fe
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: config.hubspot.clientId, client_secret: config.hubspot.clientSecret, redirect_uri: `${config.publicUrl}/api/integrations/hubspot/callback`, ...params }),
   });
-  if (!res.ok) throw new Error(`hubspot_token_${res.status}`);
+  // HubSpot's error body names the cause (e.g. BAD_CLIENT_SECRET, BAD_REDIRECT_URI) and holds no secrets.
+  if (!res.ok) throw new Error(`hubspot_token_${res.status}: ${(await res.text()).slice(0, 300)}`);
   const t = (await res.json()) as { access_token: string; refresh_token: string; expires_in: number };
   return { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: Date.now() + (t.expires_in - 60) * 1000 };
 }
