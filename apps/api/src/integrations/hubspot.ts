@@ -81,11 +81,12 @@ export class HubSpotClient {
     return tokens.access_token;
   }
 
-  private async request<T>(path: string, body: unknown): Promise<T> {
+  // body undefined = GET. Public so hubspotCheck can read records the same way.
+  async request<T>(path: string, body?: unknown): Promise<T> {
     const res = await this.fetchImpl(`${API}${path}`, {
-      method: 'POST',
+      method: body === undefined ? 'GET' : 'POST',
       headers: { authorization: `Bearer ${await this.token()}`, 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`hubspot_${res.status}: ${(await res.text()).slice(0, 200)}`);
     return res.json() as Promise<T>;

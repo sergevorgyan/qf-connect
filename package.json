@@ -12,7 +12,8 @@
     "build": "npm run build -w apps/web && npm run typecheck -w apps/api",
     "test": "npm test -w apps/api",
     "seed": "npm run seed -w apps/api",
-    "voipms:check": "npm run voipms:check -w apps/api"
+    "voipms:check": "npm run voipms:check -w apps/api",
+    "hubspot:check": "npm run hubspot:check -w apps/api --"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"
