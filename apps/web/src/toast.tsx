@@ -16,7 +16,11 @@ export function toast(text: string, kind: Toast['kind'] = 'ok') {
 
 export function Toaster() {
   const [list, setList] = useState(toasts);
-  useEffect(() => { listeners.push(setList); return () => { listeners = listeners.filter((l) => l !== setList); }; }, []);
+  useEffect(() => {
+    listeners.push(setList);
+    setList(toasts); // pick up toasts raised by children whose effects ran before this one
+    return () => { listeners = listeners.filter((l) => l !== setList); };
+  }, []);
   return (
     <div className="toasts" aria-live="polite">
       {list.map((t) => <div key={t.id} className={`toast ${t.kind}`} role={t.kind === 'error' ? 'alert' : 'status'}>{t.kind === 'ok' ? '✓ ' : ''}{t.text}</div>)}

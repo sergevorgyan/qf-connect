@@ -29,7 +29,7 @@ export function portalRoutes(app: FastifyInstance, db: DB) {
     if (q.search) { where.push('(from_number LIKE ? OR to_number LIKE ? OR from_name LIKE ?)'); const s = `%${q.search}%`; args.push(s, s, s); }
     args.push(q.limit);
     return db.prepare(`SELECT id, direction, disposition, from_number AS fromNumber, from_name AS fromName, to_number AS toNumber, did, extension,
-      duration_seconds AS durationSeconds, started_at AS startedAt, crm_logged_at AS crmLoggedAt FROM calls WHERE ${where.join(' AND ')} ORDER BY started_at DESC LIMIT ?`).all(...args);
+      duration_seconds AS durationSeconds, started_at AS startedAt, crm_logged_at AS crmLoggedAt, crm_error AS crmError FROM calls WHERE ${where.join(' AND ')} ORDER BY started_at DESC LIMIT ?`).all(...args);
   });
 
   app.get('/api/voicemails', async (req, reply) => {

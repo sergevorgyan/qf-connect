@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, formatPhone } from '../api';
+import { api, formatPhone, timeAgo } from '../api';
 import { useData } from '../useData';
 import { toast } from '../toast';
 
@@ -8,13 +8,24 @@ const failed = (e: unknown) => toast(`Could not save (${(e as Error).message}). 
 interface TextbackSettings { template: string; when: 'always' | 'after_hours' | 'business_hours'; businessHours: { days: number[]; start: string; end: string }; cooldownHours: number; maxAgeMinutes: number }
 interface Data {
   textback: { enabled: boolean; settings: TextbackSettings; numbers: { did: string; tendlcStatus: string }[] };
-  hubspot: { enabled: boolean; connected: boolean; configured: boolean; settings: { logMissed: boolean; createUnknownContacts: boolean } };
+  hubspot: { enabled: boolean; connected: boolean; configured: boolean; settings: { logMissed: boolean; createUnknownContacts: boolean };
+    activity: { recent: CrmCall[]; lastSyncedAt: string | null; failures: { count: number; latest: string | null } } | null };
 }
+
+interface CrmCall { direction: string; missed: boolean; fromNumber: string | null; toNumber: string | null; startedAt: string; status: 'sent' | 'pending' | 'skipped' | 'error' }
+const CRM_STATUS = { sent: 'sent to HubSpot', pending: 'sending...', skipped: 'not logged (missed calls off)', error: 'failed' } as const;
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export function Integrations({ canEdit }: { canEdit: boolean }) {
   const { data, reload } = useData<Data>('/api/integrations');
+  // Back from HubSpot's sign-in page: say how it went, then tidy the URL.
+  useEffect(() => {
+    const result = new URLSearchParams(window.location.search).get('hubspot');
+    if (result === 'connected') toast('HubSpot connected. New calls will be logged on matching contacts.');
+    if (result === 'error') toast('HubSpot did not connect. Please try again, or ask Quantum Frame to check the server log.', 'error');
+    if (result) window.history.replaceState(null, '', '/integrations');
+  }, []);
   if (!data) return <h1>Integrations</h1>;
   return (
     <>
@@ -101,6 +112,24 @@ function Hubspot({ data, canEdit, onChanged }: { data: Data['hubspot']; canEdit:
         <>
           <label className="check"><input type="checkbox" disabled={!canEdit} checked={data.settings.logMissed} onChange={(e) => update({ logMissed: e.target.checked })} />Log missed calls too</label>
           <label className="check"><input type="checkbox" disabled={!canEdit} checked={data.settings.createUnknownContacts} onChange={(e) => update({ createUnknownContacts: e.target.checked })} />Create a contact for unknown numbers</label>
+          {data.activity && (
+            <>
+              <p className="muted small">{data.activity.lastSyncedAt ? `Last synced ${timeAgo(data.activity.lastSyncedAt)}` : 'Nothing synced yet.'}</p>
+              {data.activity.failures.count > 0 && (
+                <div className="error">{data.activity.failures.count} call{data.activity.failures.count > 1 ? 's' : ''} in the last 2 days could not be logged. Latest error: {data.activity.failures.latest}</div>
+              )}
+              <div className="label">Recent calls sent to HubSpot</div>
+              <ul className="rows">
+                {data.activity.recent.map((c) => (
+                  <li key={c.startedAt + (c.fromNumber ?? '')}>
+                    <span>{c.missed ? 'Missed call from' : c.direction === 'inbound' ? 'Call from' : 'Call to'} {formatPhone(c.direction === 'inbound' ? c.fromNumber : c.toNumber)} <span className="muted">· {timeAgo(c.startedAt)}</span></span>
+                    <span className={`pill nocap ${c.status === 'sent' ? 'approved' : c.status === 'error' ? 'rejected' : 'pending'}`}>{CRM_STATUS[c.status]}</span>
+                  </li>
+                ))}
+                {data.activity.recent.length === 0 && <li className="muted">No calls since HubSpot was connected. New calls appear here within a minute or two.</li>}
+              </ul>
+            </>
+          )}
           {canEdit && <button className="secondary" onClick={disconnect}>Disconnect HubSpot</button>}
         </>
       ) : canEdit ? (
