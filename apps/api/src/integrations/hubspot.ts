@@ -4,7 +4,9 @@ import { decrypt, encrypt } from '../secrets.ts';
 import { getIntegration, hubspotSettings, saveIntegration } from './settings.ts';
 
 const API = 'https://api.hubapi.com';
-export const HUBSPOT_SCOPES = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'crm.objects.calls.write', 'oauth'];
+// Must match requiredScopes in hubspot-app/src/app/app-hsmeta.json. Creating calls is covered by
+// contacts write; the granular crm.objects.calls.write scope is gated by HubSpot for new apps.
+export const HUBSPOT_SCOPES = ['crm.objects.contacts.read', 'crm.objects.contacts.write', 'oauth'];
 const CALL_TO_CONTACT = 194; // HubSpot-defined association type: call -> contact
 
 interface Tokens { access_token: string; refresh_token: string; expires_at: number }
@@ -48,12 +50,13 @@ export function authorizeUrl(tenantId: number, state: string) {
 }
 
 async function tokenRequest(params: Record<string, string>, fetchImpl: typeof fetch): Promise<Tokens> {
-  const res = await fetchImpl(`${API}/oauth/v1/token`, {
+  const res = await fetchImpl(`${API}/oauth/v3/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ client_id: config.hubspot.clientId, client_secret: config.hubspot.clientSecret, redirect_uri: `${config.publicUrl}/api/integrations/hubspot/callback`, ...params }),
   });
-  if (!res.ok) throw new Error(`hubspot_token_${res.status}`);
+  // HubSpot's error body names the cause (e.g. BAD_CLIENT_SECRET, BAD_REDIRECT_URI) and holds no secrets.
+  if (!res.ok) throw new Error(`hubspot_token_${res.status}: ${(await res.text()).slice(0, 300)}`);
   const t = (await res.json()) as { access_token: string; refresh_token: string; expires_in: number };
   return { access_token: t.access_token, refresh_token: t.refresh_token, expires_at: Date.now() + (t.expires_in - 60) * 1000 };
 }
@@ -78,11 +81,12 @@ export class HubSpotClient {
     return tokens.access_token;
   }
 
-  private async request<T>(path: string, body: unknown): Promise<T> {
+  // body undefined = GET. Public so hubspotCheck can read records the same way.
+  async request<T>(path: string, body?: unknown): Promise<T> {
     const res = await this.fetchImpl(`${API}${path}`, {
-      method: 'POST',
+      method: body === undefined ? 'GET' : 'POST',
       headers: { authorization: `Bearer ${await this.token()}`, 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
     if (!res.ok) throw new Error(`hubspot_${res.status}: ${(await res.text()).slice(0, 200)}`);
     return res.json() as Promise<T>;
@@ -90,16 +94,19 @@ export class HubSpotClient {
 
   async findContactByPhone(e164: string): Promise<string | null> {
     const ten = e164.slice(-10);
-    // HubSpot stores phones as typed, so search a few common spellings.
-    const values = [e164, ten, `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`, `${ten.slice(0, 3)}-${ten.slice(3, 6)}-${ten.slice(6)}`];
-    const filterGroups = ['phone', 'mobilephone'].flatMap((p) => values.map((v) => ({ filters: [{ propertyName: p, operator: 'EQ', value: v }] })));
-    const r = await this.request<{ results: { id: string }[] }>('/crm/v3/objects/contacts/search', { filterGroups: filterGroups.slice(0, 5), limit: 1 });
-    if (r.results[0]) return r.results[0].id;
-    if (filterGroups.length > 5) {
-      const r2 = await this.request<{ results: { id: string }[] }>('/crm/v3/objects/contacts/search', { filterGroups: filterGroups.slice(5), limit: 1 });
-      return r2.results[0]?.id ?? null;
+    type Hits = { results: { id: string }[] };
+    // HubSpot reformats phones as they're typed (e.g. "+1 267-262-2465"), so match on its digits-only
+    // calculated properties first, then the raw spellings, then a full-text search as a last resort.
+    const groups = [
+      ...['hs_searchable_calculated_phone_number', 'hs_searchable_calculated_mobile_number'].map((p) => ({ filters: [{ propertyName: p, operator: 'EQ', value: ten }] })),
+      ...[e164, `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}`, `+1 ${ten.slice(0, 3)}-${ten.slice(3, 6)}-${ten.slice(6)}`].map((v) => ({ filters: [{ propertyName: 'phone', operator: 'EQ', value: v }] })),
+    ];
+    for (const filterGroups of [groups.slice(0, 5), groups.slice(5)].filter((g) => g.length)) {
+      const r = await this.request<Hits>('/crm/v3/objects/contacts/search', { filterGroups, limit: 1 });
+      if (r.results[0]) return r.results[0].id;
     }
-    return null;
+    const r = await this.request<Hits>('/crm/v3/objects/contacts/search', { query: ten, limit: 1 });
+    return r.results[0]?.id ?? null;
   }
 
   async createContact(e164: string, name: string | null): Promise<string> {
@@ -125,7 +132,8 @@ export async function logPendingCalls(db: DB, fetchImpl: typeof fetch = fetch, l
   for (const c of pending) {
     const { settings } = getIntegration(db, c.tenant_id, 'hubspot', hubspotSettings);
     const markDone = () => db.prepare('UPDATE calls SET crm_logged_at = ? WHERE id = ?').run(new Date().toISOString(), c.id);
-    if (!settings.logMissed && c.direction === 'inbound' && c.disposition !== 'ANSWERED') { markDone(); continue; }
+    // Recorded as "skipped" (not logged) so the portal doesn't show a HubSpot tick for it.
+    if (!settings.logMissed && c.direction === 'inbound' && c.disposition !== 'ANSWERED') { db.prepare(`UPDATE calls SET crm_error = 'skipped' WHERE id = ?`).run(c.id); continue; }
     try {
       const client = new HubSpotClient(db, c.tenant_id, fetchImpl);
       const other = c.direction === 'inbound' ? c.from_number : c.to_number;
@@ -139,6 +147,7 @@ export async function logPendingCalls(db: DB, fetchImpl: typeof fetch = fetch, l
       markDone();
       logged++;
     } catch (err) {
+      console.error(`hubspot logging failed for call ${c.id}:`, (err as Error).message);
       db.prepare('UPDATE calls SET crm_error = ? WHERE id = ?').run((err as Error).message.slice(0, 300), c.id);
     }
   }

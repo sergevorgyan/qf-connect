@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api, formatPhone } from '../api';
 import { useData } from '../useData';
+import { toast } from '../toast';
 
 interface Tenant { id: number; name: string; plan: string; numbers: number; extensions: number; createdAt: string }
 
@@ -47,7 +48,7 @@ function NewTenant({ onCreated }: { onCreated: () => void }) {
         // "100001_front:Front desk:1001, 100001_bob:Bob"
         extensions: f.extensions.split(',').map((x) => x.trim()).filter(Boolean).map((x) => { const [account, label, voicemailBox] = x.split(':'); return { account, label: label ?? account, voicemailBox }; }),
       } });
-      onCreated();
+      onCreated(); toast(`${f.name} created.`);
     } catch (err) { setError((err as Error).message); }
   };
   return (
@@ -68,13 +69,14 @@ function NewTenant({ onCreated }: { onCreated: () => void }) {
 }
 
 interface Detail {
-  tenant: { id: number; name: string };
+  tenant: { id: number; name: string; voipmsClientId: string | null };
   numbers: { did: string; label: string | null; tendlcStatus: string; smsCallbackUrl: string }[];
   extensions: { account: string; label: string; voicemailBox: string | null }[];
 }
 interface Inventory {
   numbers: { did: string | null; description: string; smsEnabled: boolean; tenantId: number | null }[];
   extensions: { account: string; description: string; tenantId: number | null }[];
+  clients: { id: string; name: string; email: string; tenantId: number | null }[];
 }
 
 const TENDLC = ['not_started', 'pending', 'approved', 'rejected'];
@@ -85,9 +87,9 @@ function ManageTenant({ id, onChanged }: { id: number; onChanged: () => void }) 
   const { data, reload } = useData<Detail>(`/api/admin/tenants/${id}`);
   const { data: inv, error: invError, reload: reloadInv } = useData<Inventory>('/api/admin/voipms/inventory');
   const [error, setError] = useState('');
-  const run = async (fn: () => Promise<unknown>) => {
+  const run = async (fn: () => Promise<unknown>, done: string) => {
     setError('');
-    try { await fn(); reload(); reloadInv(); onChanged(); } catch (e) { setError((e as Error).message); }
+    try { await fn(); reload(); reloadInv(); onChanged(); toast(done); } catch (e) { setError((e as Error).message); toast(`Not saved: ${(e as Error).message}`, 'error'); }
   };
   if (!data) return null;
   const freeNumbers = inv?.numbers.filter((n) => n.did && n.tenantId === null) ?? [];
@@ -95,17 +97,18 @@ function ManageTenant({ id, onChanged }: { id: number; onChanged: () => void }) 
   return (
     <section className="card stack">
       <h2>{data.tenant.name}: numbers and extensions</h2>
+      <ResellerClientLink tenantId={id} clientId={data.tenant.voipmsClientId} clients={inv?.clients ?? []} run={run} />
       <div className="label">Linked numbers</div>
       <ul className="rows">
         {data.numbers.map((n) => (
           <li key={n.did}>
             <span><strong>{formatPhone(n.did)}</strong> <span className="muted">{n.label ?? ''}</span></span>
             <span className="row">
-              <select value={n.tendlcStatus} onChange={(e) => run(() => api(`/api/admin/numbers/${encodeURIComponent(n.did)}`, { method: 'PATCH', body: { tendlcStatus: e.target.value } }))}>
+              <select value={n.tendlcStatus} onChange={(e) => run(() => api(`/api/admin/numbers/${encodeURIComponent(n.did)}`, { method: 'PATCH', body: { tendlcStatus: e.target.value } }), `10DLC status for ${formatPhone(n.did)} set to ${e.target.value.replace('_', ' ')}.`)}>
                 {TENDLC.map((s) => <option key={s} value={s}>10DLC: {s.replace('_', ' ')}</option>)}
               </select>
-              <button className="link" onClick={() => navigator.clipboard.writeText(n.smsCallbackUrl)}>Copy SMS callback URL</button>
-              <button className="link" onClick={() => run(() => api(`/api/admin/tenants/${id}/numbers/${encodeURIComponent(n.did)}`, { method: 'DELETE' }))}>Unlink</button>
+              <button className="link" onClick={() => navigator.clipboard.writeText(n.smsCallbackUrl).then(() => toast('SMS callback URL copied.'), () => toast('Could not copy. Select the URL and copy it by hand.', 'error'))}>Copy SMS callback URL</button>
+              <button className="link" onClick={() => run(() => api(`/api/admin/tenants/${id}/numbers/${encodeURIComponent(n.did)}`, { method: 'DELETE' }), `${formatPhone(n.did)} unlinked.`)}>Unlink</button>
             </span>
           </li>
         ))}
@@ -116,7 +119,7 @@ function ManageTenant({ id, onChanged }: { id: number; onChanged: () => void }) 
         {data.extensions.map((e) => (
           <li key={e.account}>
             <span><strong>{e.label}</strong> <span className="muted">{e.account}{e.voicemailBox ? ` · voicemail ${e.voicemailBox}` : ''}</span></span>
-            <button className="link" onClick={() => run(() => api(`/api/admin/tenants/${id}/extensions/${encodeURIComponent(e.account)}`, { method: 'DELETE' }))}>Unlink</button>
+            <button className="link" onClick={() => run(() => api(`/api/admin/tenants/${id}/extensions/${encodeURIComponent(e.account)}`, { method: 'DELETE' }), `Extension ${e.account} unlinked.`)}>Unlink</button>
           </li>
         ))}
         {data.extensions.length === 0 && <li className="muted">None yet.</li>}
@@ -127,7 +130,7 @@ function ManageTenant({ id, onChanged }: { id: number; onChanged: () => void }) 
         {freeNumbers.map((n) => (
           <li key={n.did}>
             <span>{formatPhone(n.did)} <span className="muted">{n.description} · SMS {n.smsEnabled ? 'on' : 'off'}</span></span>
-            <button className="link" onClick={() => run(() => api(`/api/admin/tenants/${id}/numbers`, { method: 'POST', body: { did: n.did, label: n.description || undefined } }))}>Link number</button>
+            <button className="link" onClick={() => run(() => api(`/api/admin/tenants/${id}/numbers`, { method: 'POST', body: { did: n.did, label: n.description || undefined } }), `${formatPhone(n.did)} linked.`)}>Link number</button>
           </li>
         ))}
         {freeExts.map((e) => (
@@ -135,7 +138,7 @@ function ManageTenant({ id, onChanged }: { id: number; onChanged: () => void }) 
             <span>{e.account} <span className="muted">{e.description}</span></span>
             <button className="link" onClick={() => {
               const box = window.prompt(`Voicemail box for ${e.account} (leave empty for none)`) ?? '';
-              run(() => api(`/api/admin/tenants/${id}/extensions`, { method: 'POST', body: { account: e.account, label: e.description || e.account, voicemailBox: box || undefined } }));
+              run(() => api(`/api/admin/tenants/${id}/extensions`, { method: 'POST', body: { account: e.account, label: e.description || e.account, voicemailBox: box || undefined } }), `Extension ${e.account} linked.`);
             }}>Link extension</button>
           </li>
         ))}
@@ -143,5 +146,34 @@ function ManageTenant({ id, onChanged }: { id: number; onChanged: () => void }) 
       </ul>
       {error && <div className="error">{error}</div>}
     </section>
+  );
+}
+
+// Upgrading a basic customer (VoIP.ms white-label portal) to VIP: pick their reseller client, then pull in its numbers.
+function ResellerClientLink({ tenantId, clientId, clients, run }: {
+  tenantId: number; clientId: string | null; clients: Inventory['clients'];
+  run: (fn: () => Promise<unknown>, done: string) => Promise<void>;
+}) {
+  const choices = clients.filter((c) => c.tenantId === null || c.tenantId === tenantId);
+  const current = clients.find((c) => c.id === clientId);
+  if (!clients.length && !clientId) return null;
+  const linkItems = () => run(async () => {
+    const r = await api<{ numbers: string[]; extensions: string[]; skipped: string[] }>(`/api/admin/tenants/${tenantId}/voipms-client/link-items`, { method: 'POST' });
+    if (r.skipped.length) toast(`Skipped (already belong to another customer): ${r.skipped.join(', ')}`, 'error');
+    return r;
+  }, "Client's numbers and extensions linked.");
+  return (
+    <div className="stack">
+      <div className="label">VoIP.ms reseller client (basic portal account)</div>
+      <div className="row wrap">
+        <select value={clientId ?? ''} onChange={(e) => run(() => api(`/api/admin/tenants/${tenantId}/voipms-client`, { method: 'PUT', body: { clientId: e.target.value || null } }), e.target.value ? 'Reseller client linked.' : 'Reseller client unlinked.')}>
+          <option value="">None (portal-only customer)</option>
+          {choices.map((c) => <option key={c.id} value={c.id}>{c.name} · client {c.id}</option>)}
+          {clientId && !current && <option value={clientId}>client {clientId}</option>}
+        </select>
+        {clientId && <button className="secondary" onClick={linkItems}>Link this client's numbers and extensions</button>}
+      </div>
+      <p className="muted small">The customer keeps their VoIP.ms portal login. Their numbers and extensions also appear here, so they get the VIP features without changing accounts.</p>
+    </div>
   );
 }

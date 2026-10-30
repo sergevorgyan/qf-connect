@@ -1,6 +1,6 @@
 import { config } from '../config.ts';
 import { MockVoipMs } from './mock.ts';
-import { VoipMsError, type CdrRecord, type DidInfo, type SubAccount, type VoicemailMessage, type VoipMs } from './types.ts';
+import { VoipMsError, type CdrRecord, type DidInfo, type ResellerClient, type SubAccount, type VoicemailMessage, type VoipMs } from './types.ts';
 
 const ENDPOINT = 'https://voip.ms/api/v1/rest.php';
 
@@ -20,6 +20,15 @@ export class HttpVoipMs implements VoipMs {
     return body;
   }
 
+  // For voipms:check only: the response's status and top-level keys, to confirm field names on a live account.
+  async describe(method: string, params: Record<string, string> = {}) {
+    const qs = new URLSearchParams({ api_username: this.username, api_password: this.password, method, content_type: 'json', ...params });
+    const res = await this.fetchImpl(`${ENDPOINT}?${qs}`, { signal: AbortSignal.timeout(15_000) });
+    const body = (await res.json()) as Record<string, unknown>;
+    const first = Object.values(body).find(Array.isArray) as Record<string, unknown>[] | undefined;
+    return { status: String(body.status), keys: Object.keys(body), itemFields: first?.[0] ? Object.keys(first[0]) : [] };
+  }
+
   // getIP skips the IP check, so it works before whitelisting and tells you which IP to whitelist.
   async getIP() {
     return (await this.call<{ ip: string }>('getIP')).ip;
@@ -29,8 +38,13 @@ export class HttpVoipMs implements VoipMs {
     return (await this.call<{ balance: { current_balance: string } }>('getBalance')).balance.current_balance;
   }
 
-  async getDIDsInfo() {
-    return (await this.call<{ dids?: DidInfo[] }>('getDIDsInfo')).dids ?? [];
+  async getDIDsInfo(filter: { client?: string } = {}) {
+    return (await this.call<{ dids?: DidInfo[] }>('getDIDsInfo', { client: filter.client })).dids ?? [];
+  }
+
+  // Fails with "no_reseller"-style statuses on accounts without reseller access; callers treat that as no clients.
+  async getClients() {
+    return (await this.call<{ clients?: ResellerClient[] }>('getClients')).clients ?? [];
   }
 
   async getCDR(p: { dateFrom: string; dateTo: string; timezone: number; account?: string }) {

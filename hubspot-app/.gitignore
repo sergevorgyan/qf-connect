@@ -1,0 +1,3 @@
+# HubSpot CLI login (personal access key). Never commit it.
+hubspot.config.yml
+.hsaccount

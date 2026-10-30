@@ -1,0 +1,22 @@
+{
+  "uid": "quantum_frame_phone",
+  "type": "app",
+  "config": {
+    "name": "Quantum Frame Phone",
+    "description": "Logs your business calls from Quantum Frame on the matching HubSpot contacts.",
+    "distribution": "marketplace",
+    "auth": {
+      "type": "oauth",
+      "redirectUrls": ["https://qf.lowcoster.us/api/integrations/hubspot/callback"],
+      "requiredScopes": ["oauth", "crm.objects.contacts.read", "crm.objects.contacts.write"],
+      "optionalScopes": [],
+      "conditionallyRequiredScopes": []
+    },
+    "permittedUrls": { "fetch": [], "iframe": [], "img": [] },
+    "support": {
+      "supportEmail": "lowcosterllc@gmail.com",
+      "documentationUrl": "https://qf.lowcoster.us",
+      "supportUrl": "https://qf.lowcoster.us"
+    }
+  }
+}

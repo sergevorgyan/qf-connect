@@ -41,4 +41,32 @@ for (const d of dids) {
 const subs = await api.getSubAccounts();
 console.log(`\nSub-accounts (${subs.length}):`);
 for (const s of subs) console.log(`  ${s.account}  ${s.description || '-'}  ${managedAccounts.get(s.account) ? `-> ${managedAccounts.get(s.account)}` : '(not in portal)'}`);
+let clients: Awaited<ReturnType<typeof api.getClients>> = [];
+let clientsFailed = false;
+try { clients = await api.getClients(); } catch (err) { if (!(err instanceof VoipMsError)) throw err; clientsFailed = true; console.log(`\nReseller clients: none readable (${err.status}).`); }
+const clientTenants = new Map((db.prepare('SELECT voipms_client_id AS c, name FROM tenants WHERE voipms_client_id IS NOT NULL').all() as { c: string; name: string }[]).map((r) => [r.c, r.name]));
+if (clientsFailed) {
+  // reported above
+} else if (!clients.length) {
+  const d = await api.describe('getClients');
+  console.log(`\nReseller clients: none returned (VoIP.ms status "${d.status}", keys: ${d.keys.join(', ')}).`);
+} else {
+  console.log(`\nReseller clients (${clients.length}):`);
+  for (const c of clients) {
+    const name = c.company || [c.firstname, c.lastname].filter(Boolean).join(' ') || c.email;
+    const tenant = clientTenants.get(String(c.client));
+    console.log(`  client ${c.client}  ${name}  ${tenant ? `-> VIP portal: ${tenant}` : '(basic: VoIP.ms portal only)'}`);
+    const own = await api.getDIDsInfo({ client: String(c.client) });
+    for (const d of own) {
+      console.log(`      ${d.did}  ${d.description || '-'}  ${d.routing || ''}`);
+      // Where missed calls go; the portal reads the voicemail box from here.
+      const fo = Object.entries(d as unknown as Record<string, unknown>).filter(([k, v]) => /failover|voicemail/i.test(k) && v);
+      if (fo.length) console.log(`        ${fo.map(([k, v]) => `${k}=${v}`).join('  ')}`);
+    }
+    if (!own.length) {
+      const f = await api.describe('getDIDsInfo', { client: String(c.client) });
+      console.log(`      (no numbers via getDIDsInfo client filter: status "${f.status}")`);
+    }
+  }
+}
 console.log('\nThe portal and worker only touch numbers and sub-accounts linked to a customer. Everything marked "(not in portal)" is ignored.');
