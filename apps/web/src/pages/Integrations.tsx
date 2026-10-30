@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api, formatPhone } from '../api';
+import { api, formatPhone, timeAgo } from '../api';
 import { useData } from '../useData';
 import { toast } from '../toast';
 
@@ -8,8 +8,11 @@ const failed = (e: unknown) => toast(`Could not save (${(e as Error).message}). 
 interface TextbackSettings { template: string; when: 'always' | 'after_hours' | 'business_hours'; businessHours: { days: number[]; start: string; end: string }; cooldownHours: number; maxAgeMinutes: number }
 interface Data {
   textback: { enabled: boolean; settings: TextbackSettings; numbers: { did: string; tendlcStatus: string }[] };
-  hubspot: { enabled: boolean; connected: boolean; configured: boolean; settings: { logMissed: boolean; createUnknownContacts: boolean } };
+  hubspot: { enabled: boolean; connected: boolean; configured: boolean; settings: { logMissed: boolean; createUnknownContacts: boolean }; recent: CrmCall[] };
 }
+
+interface CrmCall { direction: string; missed: boolean; fromNumber: string | null; toNumber: string | null; startedAt: string; status: 'sent' | 'pending' | 'skipped' | 'error' }
+const CRM_STATUS = { sent: 'sent to HubSpot', pending: 'sending...', skipped: 'not logged (missed calls off)', error: 'failed' } as const;
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -108,6 +111,16 @@ function Hubspot({ data, canEdit, onChanged }: { data: Data['hubspot']; canEdit:
         <>
           <label className="check"><input type="checkbox" disabled={!canEdit} checked={data.settings.logMissed} onChange={(e) => update({ logMissed: e.target.checked })} />Log missed calls too</label>
           <label className="check"><input type="checkbox" disabled={!canEdit} checked={data.settings.createUnknownContacts} onChange={(e) => update({ createUnknownContacts: e.target.checked })} />Create a contact for unknown numbers</label>
+          <div className="label">Recent calls sent to HubSpot</div>
+          <ul className="rows">
+            {data.recent.map((c) => (
+              <li key={c.startedAt + (c.fromNumber ?? '')}>
+                <span>{c.missed ? 'Missed call from' : c.direction === 'inbound' ? 'Call from' : 'Call to'} {formatPhone(c.direction === 'inbound' ? c.fromNumber : c.toNumber)} <span className="muted">· {timeAgo(c.startedAt)}</span></span>
+                <span className={`pill nocap ${c.status === 'sent' ? 'approved' : c.status === 'error' ? 'rejected' : 'pending'}`}>{CRM_STATUS[c.status]}</span>
+              </li>
+            ))}
+            {data.recent.length === 0 && <li className="muted">No calls since HubSpot was connected. New calls appear here within a minute or two.</li>}
+          </ul>
           {canEdit && <button className="secondary" onClick={disconnect}>Disconnect HubSpot</button>}
         </>
       ) : canEdit ? (

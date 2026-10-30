@@ -12,6 +12,20 @@ function sign(value: string) {
   return createHmac('sha256', config.sessionSecret).update(value).digest('base64url');
 }
 
+// The last few calls and what happened to each in HubSpot, so customers can see logging is working.
+// Calls older than the worker's 2-day window that were never sent are left out.
+function recentCrmCalls(db: DB, tenantId: number, logMissed: boolean) {
+  const rows = db.prepare(`SELECT direction, disposition, from_number AS fromNumber, to_number AS toNumber, started_at AS startedAt,
+      crm_logged_at AS loggedAt, crm_error AS error FROM calls
+    WHERE tenant_id = ? AND (crm_logged_at IS NOT NULL OR crm_error IS NOT NULL OR started_at > ?) ORDER BY started_at DESC LIMIT 5`)
+    .all(tenantId, new Date(Date.now() - 2 * 86_400_000).toISOString()) as { direction: string; disposition: string; fromNumber: string | null; toNumber: string | null; startedAt: string; loggedAt: string | null; error: string | null }[];
+  return rows.map(({ loggedAt, error, ...c }) => {
+    const missed = c.direction === 'inbound' && c.disposition !== 'ANSWERED';
+    const status = error ? 'error' : !loggedAt ? 'pending' : missed && !logMissed ? 'skipped' : 'sent';
+    return { ...c, missed, status, at: loggedAt };
+  });
+}
+
 export function integrationRoutes(app: FastifyInstance, db: DB) {
   app.get('/api/integrations', async (req, reply) => {
     const t = requireTenant(req, reply); if (t == null) return;
@@ -20,7 +34,7 @@ export function integrationRoutes(app: FastifyInstance, db: DB) {
     const numbers = db.prepare('SELECT did, tendlc_status AS tendlcStatus FROM numbers WHERE tenant_id = ?').all(t);
     return {
       textback: { enabled: tb.enabled, settings: tb.settings, numbers },
-      hubspot: { enabled: hs.enabled, connected: !!hs.secret, configured: !!config.hubspot.clientId, settings: hs.settings },
+      hubspot: { enabled: hs.enabled, connected: !!hs.secret, configured: !!config.hubspot.clientId, settings: hs.settings, recent: hs.secret ? recentCrmCalls(db, t, hs.settings.logMissed) : [] },
     };
   });
 

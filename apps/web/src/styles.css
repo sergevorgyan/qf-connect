@@ -128,3 +128,4 @@ label.check input { width: auto; }
 .toast.ok { background: var(--ok); }
 .toast.error { background: var(--warn); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.pill.nocap { text-transform: none; }
