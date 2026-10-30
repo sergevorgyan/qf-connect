@@ -1,5 +1,12 @@
-# Caddy gets and renews the HTTPS certificate for $DOMAIN automatically.
+# Caddy gets and renews the HTTPS certificates for $DOMAIN and $SITE_DOMAIN automatically.
 {$DOMAIN} {
 	encode gzip
 	reverse_proxy api:3000
+}
+
+# Quantum Frame marketing website (static files in ./website).
+{$SITE_DOMAIN} {
+	encode gzip
+	root * /srv/website
+	file_server
 }

@@ -47,7 +47,7 @@ Create a public app at developers.hubspot.com with scopes `crm.objects.contacts.
 
 ## Deploy
 
-`docker compose up -d --build` on a small VPS (static IP). Caddy is included and handles HTTPS for `DOMAIN`. SQLite on a volume is fine for pilots; move to Postgres before about 50 customers.
+`docker compose up -d --build` on a small VPS (static IP). Caddy is included and handles HTTPS for `DOMAIN` (the portal) and `SITE_DOMAIN` (the static marketing site in `website/`, default `quantumframe.lowcoster.us`). SQLite on a volume is fine for pilots; move to Postgres before about 50 customers.
 
 ## Layout
 
