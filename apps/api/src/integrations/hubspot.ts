@@ -132,7 +132,8 @@ export async function logPendingCalls(db: DB, fetchImpl: typeof fetch = fetch, l
   for (const c of pending) {
     const { settings } = getIntegration(db, c.tenant_id, 'hubspot', hubspotSettings);
     const markDone = () => db.prepare('UPDATE calls SET crm_logged_at = ? WHERE id = ?').run(new Date().toISOString(), c.id);
-    if (!settings.logMissed && c.direction === 'inbound' && c.disposition !== 'ANSWERED') { markDone(); continue; }
+    // Recorded as "skipped" (not logged) so the portal doesn't show a HubSpot tick for it.
+    if (!settings.logMissed && c.direction === 'inbound' && c.disposition !== 'ANSWERED') { db.prepare(`UPDATE calls SET crm_error = 'skipped' WHERE id = ?`).run(c.id); continue; }
     try {
       const client = new HubSpotClient(db, c.tenant_id, fetchImpl);
       const other = c.direction === 'inbound' ? c.from_number : c.to_number;

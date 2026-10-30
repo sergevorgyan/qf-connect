@@ -12,18 +12,24 @@ function sign(value: string) {
   return createHmac('sha256', config.sessionSecret).update(value).digest('base64url');
 }
 
-// The last few calls and what happened to each in HubSpot, so customers can see logging is working.
-// Calls older than the worker's 2-day window that were never sent are left out.
-function recentCrmCalls(db: DB, tenantId: number, logMissed: boolean) {
+// What call logging has been doing, so customers can see it working: the last few calls and their
+// status, when a call was last sent, and recent failures. Calls the worker will never send
+// (older than its 2-day window) are left out of the list.
+function crmActivity(db: DB, tenantId: number) {
+  const since = new Date(Date.now() - 2 * 86_400_000).toISOString();
   const rows = db.prepare(`SELECT direction, disposition, from_number AS fromNumber, to_number AS toNumber, started_at AS startedAt,
       crm_logged_at AS loggedAt, crm_error AS error FROM calls
     WHERE tenant_id = ? AND (crm_logged_at IS NOT NULL OR crm_error IS NOT NULL OR started_at > ?) ORDER BY started_at DESC LIMIT 5`)
-    .all(tenantId, new Date(Date.now() - 2 * 86_400_000).toISOString()) as { direction: string; disposition: string; fromNumber: string | null; toNumber: string | null; startedAt: string; loggedAt: string | null; error: string | null }[];
-  return rows.map(({ loggedAt, error, ...c }) => {
-    const missed = c.direction === 'inbound' && c.disposition !== 'ANSWERED';
-    const status = error ? 'error' : !loggedAt ? 'pending' : missed && !logMissed ? 'skipped' : 'sent';
-    return { ...c, missed, status, at: loggedAt };
-  });
+    .all(tenantId, since) as { direction: string; disposition: string; fromNumber: string | null; toNumber: string | null; startedAt: string; loggedAt: string | null; error: string | null }[];
+  const recent = rows.map(({ loggedAt, error, ...c }) => ({
+    ...c,
+    missed: c.direction === 'inbound' && c.disposition !== 'ANSWERED',
+    status: error === 'skipped' ? 'skipped' : error ? 'error' : loggedAt ? 'sent' : 'pending',
+  }));
+  const { last } = db.prepare('SELECT MAX(crm_logged_at) AS last FROM calls WHERE tenant_id = ?').get(tenantId) as { last: string | null };
+  const failed = db.prepare(`SELECT COUNT(*) AS n, MAX(crm_error) AS latest FROM calls WHERE tenant_id = ? AND crm_error IS NOT NULL AND crm_error <> 'skipped' AND started_at > ?`)
+    .get(tenantId, since) as { n: number; latest: string | null };
+  return { recent, lastSyncedAt: last, failures: { count: failed.n, latest: failed.latest } };
 }
 
 export function integrationRoutes(app: FastifyInstance, db: DB) {
@@ -34,7 +40,7 @@ export function integrationRoutes(app: FastifyInstance, db: DB) {
     const numbers = db.prepare('SELECT did, tendlc_status AS tendlcStatus FROM numbers WHERE tenant_id = ?').all(t);
     return {
       textback: { enabled: tb.enabled, settings: tb.settings, numbers },
-      hubspot: { enabled: hs.enabled, connected: !!hs.secret, configured: !!config.hubspot.clientId, settings: hs.settings, recent: hs.secret ? recentCrmCalls(db, t, hs.settings.logMissed) : [] },
+      hubspot: { enabled: hs.enabled, connected: !!hs.secret, configured: !!config.hubspot.clientId, settings: hs.settings, activity: hs.secret ? crmActivity(db, t) : null },
     };
   });
 

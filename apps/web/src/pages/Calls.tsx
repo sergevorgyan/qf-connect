@@ -4,7 +4,7 @@ import { useData } from '../useData';
 
 export interface Call {
   id: number; direction: 'inbound' | 'outbound'; disposition: string; fromNumber: string | null; fromName: string | null;
-  toNumber: string | null; did: string | null; extension: string; durationSeconds: number; startedAt: string; crmLoggedAt: string | null;
+  toNumber: string | null; did: string | null; extension: string; durationSeconds: number; startedAt: string; crmLoggedAt: string | null; crmError: string | null;
 }
 
 const FILTERS = ['all', 'missed', 'inbound', 'outbound'] as const;
@@ -34,7 +34,8 @@ export function Calls() {
                   <td className="muted">{formatPhone(c.did)}</td>
                   <td>{c.disposition.toLowerCase()}</td>
                   <td>{duration(c.durationSeconds)}</td>
-                  <td className="muted">{timeAgo(c.startedAt)}</td>
+                  <td className="muted">{timeAgo(c.startedAt)}{c.crmLoggedAt ? <span className="crm ok" title={`Logged to HubSpot ${timeAgo(c.crmLoggedAt)}`}>HubSpot ✓</span>
+                    : c.crmError && c.crmError !== 'skipped' ? <span className="crm failed" title={c.crmError}>HubSpot ✗</span> : null}</td>
                   <td>{other && <a href={`tel:${other}`}>Call back</a>}</td>
                 </tr>
               );

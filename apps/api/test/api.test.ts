@@ -95,9 +95,13 @@ test('calls are logged to HubSpot once, matched to the contact', async () => {
   // The Integrations page shows what happened to recent calls.
   const app = await buildServer(db);
   const dana = await login(app, 'dana@bay.test', 'dana-password');
-  const integ = (await app.inject({ url: '/api/integrations', headers: dana })).json() as { hubspot: { recent: { status: string }[] } };
-  assert.equal(integ.hubspot.recent.length, 5);
-  assert.ok(integ.hubspot.recent.every((c) => c.status === 'sent'));
+  const integ = (await app.inject({ url: '/api/integrations', headers: dana })).json() as { hubspot: { activity: { recent: { status: string }[]; lastSyncedAt: string | null; failures: { count: number } } } };
+  assert.equal(integ.hubspot.activity.recent.length, 5);
+  assert.ok(integ.hubspot.activity.recent.every((c) => c.status === 'sent'));
+  assert.ok(integ.hubspot.activity.lastSyncedAt);
+  assert.equal(integ.hubspot.activity.failures.count, 0);
+  const calls = (await app.inject({ url: '/api/calls', headers: dana })).json() as { crmLoggedAt: string | null }[];
+  assert.ok(calls.some((c) => c.crmLoggedAt)); // feeds the "HubSpot ✓" mark
 });
 
 test('QF admin links a VoIP.ms number to a customer and unlinks it', async () => {
